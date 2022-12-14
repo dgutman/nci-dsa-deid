@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+
+db/
+logs/
+assetstore/
+..gitignore.swp

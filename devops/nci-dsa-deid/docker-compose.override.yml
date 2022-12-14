@@ -1,0 +1,19 @@
+---
+version: '3'
+services:
+  girder:
+    volumes:
+      # For local development, uncomment the set of mounts associated with the
+      # local source files.  Adding the editable egg directories first allows
+      # allow mounting source files from the host without breaking the internal
+      # data.
+      #- /home/dagutman/devel/dsa-wsi-deid:/opt/dsa-wsi-deid
+      #- /home/dagutman/devel/nci-dsa-deid:/opt/nci-dsa-deid
+      - ./wsi_deid_provision.py:/opt/digital_slide_archive/devops/dsa/wsi_deid_provision.py
+      - ./provision.py:/opt/digital_slide_archive/devops/dsa/provision.py
+      - ./homepage.md:/opt/digital_slide_archive/devops/dsa/homepage.md
+      - /home/dagutman/data/import:/import
+      - /home/dagutman/data/export:/export
+    #command: bash -c 'PATH="/opt/venv/bin:/.pyenv/bin:/.pyenv/shims:$PATH" pip install /opt/dsa-wsi-deid && PATH="/opt/venv/bin:/.pyenv/bin:/.pyenv/shims:$PATH" python /opt/digital_slide_archive/devops/dsa/wsi_deid_provision.py && /opt/digital_slide_archive/devops/dsa/start_girder.sh '
+
+      # system.  Also add them to the worker container to reduce copying.
