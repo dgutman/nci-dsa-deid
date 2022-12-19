@@ -15,3 +15,7 @@ To minimize the number of changes I am making to the main dsa provision.py scrip
 made a copy of the provision.py script form the dsa-wsi-deid, and am importing this
 into the provision.py script ( import wsideid_provision ) and then just calling the two functions
 that the wsideid provisioning script references
+
+
+## More notes
+I am looking in HierarchyWidget.js as an example of adding a button, I may just want to override this and a single button at least at first

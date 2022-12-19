@@ -74,8 +74,8 @@ WSI DeID Version: %s
                     public=public, creator=adminUser, reuseExisting=True
                 )
                 Upload().uploadFromFile(
-                    open('wsi_deid/schema/importManifestSchema.json', 'rb'),
-                    os.path.getsize('wsi_deid/schema/importManifestSchema.json'),
+                    open('/opt/digital_slide_archive/devops/dsa/importManifestSchema.json', 'rb'),
+                    os.path.getsize('/opt/digital_slide_archive/devops/dsa/importManifestSchema.json'),
                     name='importManifestSchema.json',
                     parentType='folder',
                     parent=folder,

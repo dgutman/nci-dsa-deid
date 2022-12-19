@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "$id": "http://example.com/example.json",
+  "type": "object",
+  "title": "Working schema for NCI CBIIT deidentification workflow validation",
+  "description": "The schema to validate the DeID Upload CSV file for the NCI CBIIT DeID Project.",
+  "default": {},
+  "required": ["InputFileName","SampleID","OutputFileName"],
+  "properties": {
+    "PatientID": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9]",
+      "description": "The patient ID has to start with a letter or number."
+    },
+    "SampleID": {
+      "type": "string"
+    },
+    "REPOSITORY": {
+      "type": "string"
+    },
+    "STUDY": {
+      "type": "string"
+    },
+    "PROJECT": {
+      "type": "string"
+    },
+    "CASE": {
+      "type": "string"
+    },
+    "BLOCK": {
+      "type": "string"
+    },
+    "ASSAY": {
+      "type": "string"
+    },
+    "INDEX": {
+      "type": "string"
+    },
+    "LabelText": {
+      "type": "string"
+    },
+    "InputFileName": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

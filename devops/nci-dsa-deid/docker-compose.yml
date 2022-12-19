@@ -3,7 +3,7 @@ version: '3'
 services:
   girder:
     image: dsa_nci_deid:latest
-    build: ../..
+    build: ./.
     # Instead of privileged mode, fuse can use:
     privileged: true
     # Set DSA_USER to a user id that is part of the docker group (e.g.,

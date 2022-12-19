@@ -259,11 +259,11 @@ The [HistomicsUI](histomics) application is enabled.""",
             not getattr(opts, 'slicer-cli-image', None) and
             getattr(opts, 'portion', None) in {'main', }):
         setattr(opts, 'slicer-cli-image', ['dsarchive/histomicstk:latest'])
-    if getattr(opts, 'slicer-cli-image', None):
-        try:
-            get_slicer_images(getattr(opts, 'slicer-cli-image', None), adminUser)
-        except Exception:
-            logger.info('Cannot fetch slicer-cli-images.')
+    # if getattr(opts, 'slicer-cli-image', None):
+    #     try:
+    #         get_slicer_images(getattr(opts, 'slicer-cli-image', None), adminUser)
+    #     except Exception:
+    #         logger.info('Cannot fetch slicer-cli-images.')
 
 
 def preprovision(opts):
