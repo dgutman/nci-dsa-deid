@@ -14,7 +14,7 @@ class GirderPlugin(plugin.GirderPlugin):
 
         oldFunc = wsi_deid.process.add_title_to_image
 
-        wsi_deid.add_title_to_image = nciProcess.add_barcode_to_image
+        wsi_deid.process.add_title_to_image = nciProcess.add_barcode_to_image
         # add plugin loading logic here
 
 
