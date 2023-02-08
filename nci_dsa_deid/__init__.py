@@ -2,7 +2,7 @@ from girder import plugin
 import wsi_deid.process
 from pylibdmtx.pylibdmtx import encode
 from . import nciProcess
-
+from . import barcodeHelpers
 
 class GirderPlugin(plugin.GirderPlugin):
     DISPLAY_NAME = "nci-dsa-deid"
@@ -14,7 +14,8 @@ class GirderPlugin(plugin.GirderPlugin):
 
         oldFunc = wsi_deid.process.add_title_to_image
 
-        wsi_deid.process.add_title_to_image = nciProcess.add_barcode_to_image
+        #wsi_deid.process.add_title_to_image = nciProcess.add_barcode_to_image
+        wsi_deid.process.add_title_to_image = barcodeHelpers.add_barcode_to_image
         # add plugin loading logic here
 
 

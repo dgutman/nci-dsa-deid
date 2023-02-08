@@ -24,6 +24,8 @@ from girder.models.setting import Setting
 from girder_large_image.models.image_item import ImageItem
 from large_image.tilesource import dictToEtree
 
+from . import barcodeHelpers
+
 # from . import config
 
 # from .constants import PluginSettings, TokenOnlyPrefix
@@ -38,7 +40,7 @@ from pylibdmtx.pylibdmtx import encode
 
 
 def add_barcode_to_image(
-    image, title, dataDict, previouslyAdded=False, minWidth=384, background="#000000", textColor="#ffffff", square=True
+    image, title, dataDict, previouslyAdded=False, minWidth=384, background="#000000", textColor="#ffffff", square=True, item=None
 ):
     """
     Add both a title and a barcode to an image.  If the image doesn't exist, a new image is made
@@ -57,6 +59,8 @@ def add_barcode_to_image(
     :param square: if True, output a square image.
     :returns: a PIL image.
     """
+    print(item)
+
     mode = "RGB"
     if image is None:
         image = PIL.Image.new(mode, (0, 0))
@@ -97,6 +101,8 @@ def add_barcode_to_image(
         xy=(int((targetW - textW) / 2), int((titleH - textH) / 2)), text=title, fill=textColor, font=imageDrawFont
     )
     jsonString = json.dumps({"HELLO": "WORLD", "SCOTT": "ISTALL", "HOW": "AREYOU"})
+
+    jsonString = json.dumps(item['meta']['deidUpload']) ## Add checks
 
     encoded = encode(jsonString.encode("utf8"))
     img = PIL.Image.frombytes("RGB", (encoded.width, encoded.height), encoded.pixels)

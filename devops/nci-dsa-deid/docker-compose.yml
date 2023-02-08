@@ -2,8 +2,8 @@
 version: '3'
 services:
   girder:
-    image: dsa_nci_deid:latest
-    build: ./.
+    image: "dagutman/nci-dsa-deid:latest"
+    #build: ./.  Only have this on during dev
     # Instead of privileged mode, fuse can use:
     privileged: true
     # Set DSA_USER to a user id that is part of the docker group (e.g.,
@@ -58,10 +58,11 @@ services:
     # writes.
     #   Limiting maxConns reduces the amount of shared memory demanded by
     # mongo.  Remove this limit or increase the host vm.max_map_count value.
-    command: --nojournal --maxConns 1000
+    command: --nojournal --maxConns 1000 --logpath /var/log/mongodb/mongodb.log
     volumes:
       # Location to store database files
       - ./db:/data/db
+      - ./logs:/var/log/mongodb
     # Uncomment to allow access to the database from outside of the docker
     # network.
     # ports:
