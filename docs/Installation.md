@@ -5,6 +5,13 @@
 or
     git clone https://github.com/dgutman/nci-dsa-deid.git
 
+## Install dependencies
+On many systems these may be installed, for Ubuntu systems
+
+
+    sudo apt-get install unzip git 
+
+
 ### Other requirements
 Docker must be installed, including the docker compose plugin.  This varies depending on the platform.  
 The user who will start/stop the DSA container(s) also needs to be able to start the docker containers themselves.  This can usually be done by adding them to the 
