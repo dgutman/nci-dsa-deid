@@ -11,3 +11,14 @@ The user who will start/stop the DSA container(s) also needs to be able to start
 the docker user group.
     
 ### You can either build the docker containers locally or pull from upstream
+
+I normally create a little start up script to start and stop the docker services.  
+The script contents look like this, and it's called start_dsadeid.sh which can be invoked from the devops/nci-dsa-deid directory
+
+
+    docker compose down
+    DSA_USER=$(id -u):$(id -g) DSA_PORT=8080 docker compose up  -d
+
+
+### Starting the DSA DeID Service
+    bast start_dsadeid.sh
