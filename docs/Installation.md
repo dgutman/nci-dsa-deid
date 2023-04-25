@@ -9,7 +9,7 @@ or
 ## Install dependencies
 On many systems these may be installed, for Ubuntu systems
 
-    sudo apt-get install unzip git 
+    sudo apt-get install unzip git git-lfs
 
 
 ### Other requirements
