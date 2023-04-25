@@ -3,11 +3,11 @@
 ### Clone Repo via SSH or HTML
     git clone git@github.com:dgutman/nci-dsa-deid.git
 or
+
     git clone https://github.com/dgutman/nci-dsa-deid.git
 
 ## Install dependencies
 On many systems these may be installed, for Ubuntu systems
-
 
     sudo apt-get install unzip git 
 
