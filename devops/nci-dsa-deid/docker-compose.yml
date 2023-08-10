@@ -9,6 +9,14 @@ services:
     # Set DSA_USER to a user id that is part of the docker group (e.g.,
     # `DSA_USER=$(id -u):$(id -g)`).  This makes files in assetstores and logs
     # owned by that user and provides permissions to manage docker
+
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse:/dev/fuse
+    security_opt:
+      - apparmor:unconfined
+
     environment:
       DSA_USER: ${DSA_USER:-}
       # Enable this to automatically use the provisioning yaml
@@ -103,6 +111,14 @@ services:
     # Set DSA_USER to a user id that is part of the docker group (e.g.,
     # `DSA_USER=$(id -u):$(id -g)`).  This provides permissions to manage
     # docker
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse:/dev/fuse
+    security_opt:
+      - apparmor:unconfined
+
+
     environment:
       DSA_USER: ${DSA_USER:-}
       DSA_WORKER_CONCURRENCY: ${DSA_WORKER_CONCURRENCY:-2}
