@@ -13,6 +13,30 @@ gc = girder_client.GirderClient(apiUrl=s.DSA_BASE_URL)
 collections = gc.get("collection")
 
 
+# def folder_div(collection_folder):
+#     if collection_folder["_modelType"] == "collection":
+#         level = 1
+#     else:
+#         level = 2
+
+#     return html.Div(
+#         [
+#             dmc.Button(
+#                 collection_folder["name"],
+#                 leftIcon=DashIconify(icon="material-symbols:folder", width=20),
+#                 id={"type": "folder", "id": collection_folder["_id"], "level": level},
+#                 n_clicks=0,
+#                 variant="subtle",
+#                 style={"text-align": "left", "margin-left": f"{20*level}px"},
+#             ),
+#             html.Div(
+#                 id={"type": "subfolders", "id": collection_folder["_id"], "level": level},
+#                 style={"margin-left": f"{20*(level)}px"},
+#             ),
+#         ]
+#     )
+
+
 def folder_div(collection_folder):
     if collection_folder["_modelType"] == "collection":
         level = 1
@@ -27,14 +51,17 @@ def folder_div(collection_folder):
                 id={"type": "folder", "id": collection_folder["_id"], "level": level},
                 n_clicks=0,
                 variant="subtle",
-                style={"text-align": "left", "margin-left": f"{20*level}px"},
+                style={"text-align": "left", "margin-left": f"{20*level}px", 
+                       "padding": "2px 8px", "font-size": "1rem", "height": "18px"},
             ),
             html.Div(
                 id={"type": "subfolders", "id": collection_folder["_id"], "level": level},
                 style={"margin-left": f"{20*(level)}px"},
             ),
-        ]
+        ],
+        style={"margin-top": "0px", "margin-bottom": "0px"}  # Adjust these values as needed
     )
+
 
 
 tree_layout = html.Div(

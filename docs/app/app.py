@@ -157,8 +157,27 @@ def parse_testfile(filename):
         )
     ])
 
+
+modal_tree = dbc.Container([
+    # Trigger button
+    dbc.Button("Open Modal", id="open-modal-btn", className="mt-5"),
+
+    # Modal
+    dbc.Modal([
+        dbc.ModalHeader("Modal Title"),
+        dbc.ModalBody("A Tree widget goes here"),
+        dbc.ModalFooter(
+            dbc.Button("Close", id="close-modal-btn", className="ml-auto")
+        )
+    ], id="my-modal"),
+])
+
+
+
 app.layout = html.Div([
     html.H1("NCI DeID Upload Agent"),
+    modal_tree,
+    
     dcc.Store(id='itemList_store'),
     tree.tree_layout,
     html.Div([html.Button("Load Test Data",id="load-test-data-button"),
@@ -185,6 +204,20 @@ app.layout = html.Div([
     html.Div(id='output-data-upload'),
     dbc.Card([dbc.CardBody(schema_layout,class_name="mb-3")])
 ])
+
+
+@app.callback(
+    Output("my-modal", "is_open"),
+    [Input("open-modal-btn", "n_clicks"), Input("close-modal-btn", "n_clicks")],
+    [State("my-modal", "is_open")],
+)
+def toggle_modal(n1, n2, is_open):
+    if n1 or n2:
+        return not is_open
+    return is_open
+
+# if __name__ == "__main__":
+#     app.run_server(debug=True)
 
 
 @app.callback(Output("schema-output", "children"), [Input("my-toggle-switch", "value")])
