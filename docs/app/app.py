@@ -1,6 +1,7 @@
 import dash_bootstrap_components as dbc
 from deidHelpers import parse_testfile, validate_df, parse_contents
 import dash
+import dash_ag_grid as dag
 
 # import dash_daq as daq
 import dash_mantine_components as dmc
@@ -116,12 +117,14 @@ debug_buttons = html.Div(
     ]
 )
 
+merged_data = html.Div([html.Div(id="mergedImageSet")])
 
 tabs = dbc.Tabs(
     [
         dbc.Tab(tab2_content, label="Slides For DeID"),
         dbc.Tab(metadata_upload_layout, label="Metadata "),
         dbc.Tab(debug_buttons, label="Debug Tools"),
+        dbc.Tab(merged_data, label="merged Data"),
     ]
 )
 
@@ -134,6 +137,8 @@ app.layout = html.Div(
         ),
         modal_tree,
         dcc.Store(id="itemList_store"),
+        dcc.Store(id="metadata_store"),
+        dcc.Store(id="mergedItem_store"),
         dcc.Store({"type": "datastore", "id": "ils", "level": 2}),
         html.Div(id="last-clicked-folder", style={"display": "none"}),
         tabs,
@@ -142,26 +147,65 @@ app.layout = html.Div(
 )
 
 
-# @app.callback(
-#     Output("itemList_store", "data"),  # Replace with your DataTable's ID
-#     [Input("check-match-button", "n_clicks")],
-#     [State("metadataTable", "rows"), State("itemList_store", "data")],
-# )
-# def check_name_matches(n, datatable_data, itemlist_data):
-#     print("I like matching")
-#     if not n:
-#         raise dash.exceptions.PreventUpdate
+@app.callback(
+    Output("mergedItem_store", "data"),  # Replace with your DataTable's ID
+    [Input("check-match-button", "n_clicks")],
+    [State("metadata_store", "data"), State("itemList_store", "data")],
+    prevent_initial_call=True,
+)
+def check_name_matches(n, metadata, itemlist_data):
+    print("I like matching")
 
-#     # Extract the 'name' column from the parsed contents DataTable
-#     datatable_names = set(row["name"] for row in datatable_data)
-#     print(len(datatable_names), "rows are in the metadata table")
-#     print(len(itemlist_data), "rows are in the current itemlist")
-#     # Extract the 'name' column from the itemList table
-#     itemlist_names = set(row["name"] for row in itemlist_data)
+    if not n:
+        raise dash.exceptions.PreventUpdate
+
+    #     # Extract the 'name' column from the parsed contents DataTable
+    filenames_from_metadata = set(row["InputFileName"] for row in metadata)
+    #     # Extract the 'name' column from the itemList table
+    itemlist_names = set(row["name"] for row in itemlist_data)
+    print(len(metadata), "rows are in the metadata table")
+    print(len(itemlist_data), "rows are in the current itemlist")
+
+    try:
+        for row in itemlist_data:
+            row["match_result"] = (
+                "Match" if row["name"] in filenames_from_metadata else "No Match"
+            )
+        return itemlist_data
+    except:
+        print("Something broke")
+
+
+@app.callback(Output("mergedImageSet", "children"), Input("mergedItem_store", "data"))
+def updateMergedDatatable(mergeddata):
+    if mergeddata:
+        print(mergeddata[0]["name"])
+        # print("yo   ")
+
+        merged_grid = [
+            dag.AgGrid(
+                rowData=mergeddata,
+                columnDefs=[
+                    {"headerName": i, "field": i} for i in mergeddata[0].keys()
+                ],
+                # For tooltips and other configurations, you would use the 'gridOptions' parameter
+                # Example:
+                # gridOptions={
+                #     'enableToolPanel': True,
+                #     'toolPanelSuppressRowGroups': True,
+                #     ...
+                # },
+            )
+        ]
+
+        return merged_grid
+    else:
+        return [html.Div()]
+
 
 #     # Update the parsed contents DataTable with match results
-#     for row in datatable_data:
-#         row["match_result"] = "Match" if row["name"] in itemlist_names else "No Match"
+#     print("HII Dave")
+
 
 #     return datatable_data
 
@@ -197,63 +241,15 @@ def update_output(testdata_n_clicks, list_of_contents, list_of_names, list_of_da
         return children
 
 
+## To refactor... the metadata store should be populating the metadatatable , not vice
+@callback(Output("metadata_store", "data"), Input("metadataTable", "rowData"))
+def updateMetadataStore(metadata):
+    print(len(metadata))
+    return metadata
+
+
 if __name__ == "__main__":
     app.run(debug=True)
 
 
 # I am trying to set up conditional formatting so that if the column name appears in the row error_cols it will highlight that cell in orange
-
-# schema_layout = dbc.Card(
-#     [
-#         daq.ToggleSwitch(id="my-toggle-switch", value=False),
-#         dbc.CardBody(id="schema-output"),
-#     ],
-#     style={"width": "18rem"},
-# )
-
-# @app.callback(Output("schema-output", "children"), [Input("my-toggle-switch", "value")])
-# def display_output(value):
-#     if value:
-#         data = {"a": 1, "b": [1, 2, 3, {"c": 4}]}
-#         theme = {
-#             "scheme": "monokai",
-#             "author": "wimer hazenberg (http://www.monokai.nl)",
-#             "base00": "#272822",
-#             "base01": "#383830",
-#             "base02": "#49483e",
-#             "base03": "#75715e",
-#             "base04": "#a59f85",
-#             "base05": "#f8f8f2",
-#             "base06": "#f5f4f1",
-#             "base07": "#f9f8f5",
-#             "base08": "#f92672",
-#             "base09": "#fd971f",
-#             "base0A": "#f4bf75",
-#             "base0B": "#a6e22e",
-#             "base0C": "#a1efe4",
-#             "base0D": "#66d9ef",
-#             "base0E": "#ae81ff",
-#             "base0F": "#cc6633",
-#         }
-#         return dash_renderjson.DashRenderjson(
-#             id="input", data=schema, max_depth=-1, theme=theme, invert_theme=True
-#         )
-
-# dbc.Button("Toggle Panel", id="toggle-panel-btn"),
-#         html.Div("This is a floating panel", id="floating-panel"),
-
-# @app.callback(
-#     Output("floating-panel", "style"),
-#     [Input("toggle-panel-btn", "n_clicks")],
-#     [State("floating-panel", "style")],
-# )
-# def toggle_floating_panel(n_clicks, current_style):
-#     if not n_clicks:
-#         # Default state (can be set to display or not as per your preference)
-#         return {"display": "none"}
-
-#     # Toggle display based on current state
-#     if current_style and current_style.get("display") == "none":
-#         return {"display": "block"}
-#     else:
-#         return {"display": "none"}
