@@ -1,269 +1,200 @@
 import dash_bootstrap_components as dbc
+from deidHelpers import parse_testfile, validate_df, parse_contents
+
 # import dash_daq as daq
 import dash_mantine_components as dmc
 import dash_renderjson
 import pandas as pd
-from dash import (Dash, Input, Output, State, callback, callback_context,
-                  dash_table, dcc, html)
-from jsonschema import Draft7Validator, ErrorTree, validate
+from dash import (
+    Dash,
+    Input,
+    Output,
+    State,
+    callback,
+    callback_context,
+    dash_table,
+    dcc,
+    html,
+)
+from jsonschema import Draft7Validator, validate
+from jsonschema.exceptions import ErrorTree
 import settings as s
 import dash_daq as daq
 import datetime, base64, json, jsonschema
 import tree
-#import deidHelpers as hlprs
+from dash import MATCH
 
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css',dbc.themes.BOOTSTRAP]
-app = Dash(__name__, external_stylesheets=external_stylesheets)
+# import deidHelpers as hlprs
 
-def print_all_errors(error_tree):
-    for error in error_tree.errors:
-        print(f"Error at {list(error.path)}: {error.message}")
-
+external_stylesheets = [
+    "https://codepen.io/chriddyp/pen/bWLwgP.css",
+    dbc.themes.BOOTSTRAP,
+]
+app = Dash(
+    __name__,
+    external_stylesheets=external_stylesheets,
+    suppress_callback_exceptions=True,
+)
 
 # Load the JSON schema
 with open(s.SCHEMA_FILE) as file:
     schema = json.load(file)
 
-
-def validate_df(df):
-    """Validate DataFrame against schema and return DataFrame with 'valid' column and 'error' column."""
-    df['valid'] = True
-    df['error_cols'] = ""
-
-    validator = Draft7Validator(schema)
-    for i, row in df.iterrows():
-        row_dict = row.to_dict()
-
-        error_list = validator.iter_errors(row_dict)
-        error_tree = jsonschema.exceptions.ErrorTree(validator.iter_errors(row_dict))
-
-
-        invalid_cols = []
-        for e in error_list:
-            ##pass
-            invalid_cols.append(*e.path)
-        print(",".join(invalid_cols))
-        df.at[i, 'valid'] = False
-        df.at[i, 'error_cols'] = str(invalid_cols)
-
-    return df
-
-
-schema_layout =dbc.Card([ 
-daq.ToggleSwitch(id="my-toggle-switch", value=False), 
-dbc.CardBody(id="schema-output")],
-         style={"width": "18rem"})
-
-
-def parse_contents(contents, filename, date):
-    content_type, content_string = contents.split(',')
-
-    decoded = base64.b64decode(content_string)
-    try:
-        if 'csv' in filename:
-            # Assume that the user uploaded a CSV file
-            df = pd.read_csv(
-                io.StringIO(decoded.decode('utf-8')))
-        elif 'xls' in filename:
-            # Assume that the user uploaded an excel file
-            df = pd.read_excel(io.BytesIO(decoded))
-    except Exception as e:
-        # print(e)
-        return html.Div([
-            'There was an error processing this file.'
-        ])
-
-    # Validate the DataFrame
-    df = validate_df(df)
-
-    return html.Div([
-        html.H5(filename),
-        html.H6(datetime.datetime.fromtimestamp(date)),
-
-        dash_table.DataTable(
-            df.to_dict('records'),
-            [{'name': i, 'id': i} for i in df.columns],
-            tooltip_data=[
-                {
-                    column: {'value': str(value), 'type': 'markdown'}
-                    for column, value in row.items()
-                } for row in df.to_dict('records')
+modal_tree = dbc.Container(
+    [
+        # Trigger button
+        tree.dsa_login_panel,
+        # Modal
+        dbc.Modal(
+            [
+                dbc.ModalHeader("Select Folder For DeID"),
+                dbc.ModalBody(tree.tree_layout),
+                dbc.ModalFooter(
+                    dbc.Button("Close", id="close-modal-btn", className="ml-auto")
+                ),
             ],
-            tooltip_duration=None,
-            style_data_conditional=[
-                            ]
+            id="selectDSAfolder-modal",
         ),
-        html.Hr(),  # horizontal line
-        # For debugging, display the raw contents provided by the web browser
-        html.Div('Raw Content'),
-        html.Pre(contents[0:200] + '...', style={
-            'whiteSpace': 'pre-wrap',
-            'wordBreak': 'break-all'
-        })
-    ])
-
-def parse_testfile(filename):
-    """This will parse a file that is local and hardcoded for demo purposes"""
-
-    try:
-        if 'csv' in filename:
-            # Assume that the user uploaded a CSV file
-            df = pd.read_csv(filename)
-        elif 'xls' in filename:
-            # Assume that the user uploaded an excel file
-            df = pd.read_excel(filename)
-    except Exception as e:
-        # print(e)
-        return html.Div([
-            'There was an error processing this file.'
-        ])
-
-    # Validate the DataFrame
-    df = validate_df(df)
-
-    return html.Div([
-        html.H5(filename),
-        html.H6(datetime.datetime.now()),
-### Trick since True becomes true in javascript
-
-        dash_table.DataTable(
-            df.to_dict('records'),
-            [{'name': i, 'id': i} for i in df.columns],
-            tooltip_data=[
-                {
-                    column: {'value': str(value), 'type': 'markdown'}
-                    for column, value in row.items()
-                } for row in df.to_dict('records')
-            ],
-            tooltip_duration=None,
-            style_data_conditional=[
-            {
-                'if': {
-                    'filter_query': 'error_cols contains {}'.format(column),                     'column_id': column
-                },
-                'backgroundColor': 'red',
-                'color': 'white'}
-             for column in df.columns
-        ] 
-        + [
-            {
-                'if': {
-                    'column_id': column
-                },
-                'backgroundColor': 'gray',
-                'color': 'white'
-            } for column in df.columns if column not in schema['properties']
-            ]
-        )
-    ])
-
-
-modal_tree = dbc.Container([
-    # Trigger button
-    dbc.Button("Open Modal", id="open-modal-btn", className="mt-5"),
-
-    # Modal
-    dbc.Modal([
-        dbc.ModalHeader("Modal Title"),
-        dbc.ModalBody("A Tree widget goes here"),
-        dbc.ModalFooter(
-            dbc.Button("Close", id="close-modal-btn", className="ml-auto")
-        )
-    ], id="my-modal"),
-])
-
-
-
-app.layout = html.Div([
-    html.H1("NCI DeID Upload Agent"),
-    modal_tree,
-    
-    dcc.Store(id='itemList_store'),
-    tree.tree_layout,
-    html.Div([html.Button("Load Test Data",id="load-test-data-button"),
-              html.Button("Get DeidFiles",id="load-files-for-deid-button")]),
-    dcc.Upload(
-        id='upload-data',
-        children=html.Div([
-            'Drag and Drop or ',
-            html.A('Select Files')
-        ]),
-        style={
-            'width': '100%',
-            'height': '60px',
-            'lineHeight': '60px',
-            'borderWidth': '1px',
-            'borderStyle': 'dashed',
-            'borderRadius': '5px',
-            'textAlign': 'center',
-            'margin': '10px'
-        },
-        # Allow multiple files to be uploaded
-        multiple=True
+    ]
+)
+tab1_content = dbc.Card(
+    dbc.CardBody(
+        [
+            html.P("Target Images", className="card-text"),
+            dbc.Button("Click here", color="success"),
+        ]
     ),
-    html.Div(id='output-data-upload'),
-    dbc.Card([dbc.CardBody(schema_layout,class_name="mb-3")])
-])
+    className="mt-3",
+)
+
+tab2_content = dbc.Card(
+    dbc.CardBody(
+        [
+            html.P("Images for DeID", className="card-text"),
+            html.Div("Item Info"),
+        ]
+    ),
+    className="mt-3",
+)
+
+
+metadata_upload_layout = dbc.Container(
+    [
+        dcc.Upload(
+            id="upload-data",
+            children=html.Div(["Drag and Drop or ", html.A("Select Files")]),
+            style={
+                "width": "100%",
+                "height": "60px",
+                "lineHeight": "60px",
+                "borderWidth": "1px",
+                "borderStyle": "dashed",
+                "borderRadius": "5px",
+                "textAlign": "center",
+                "margin": "10px",
+            },
+            # Allow multiple files to be uploaded
+            multiple=False,
+        ),
+        html.Div(id="output-data-upload"),
+    ]
+)
+
+
+tabs = dbc.Tabs(
+    [
+        dbc.Tab(metadata_upload_layout, label="Metadata "),
+        dbc.Tab(tab2_content, label="Slides For DeID"),
+        dbc.Tab("Debug Tools", label="Debug Tools"),
+    ]
+)
+
+app.layout = html.Div(
+    [
+        html.Div(
+            id={"type": "selected-folder", "id": "TBD", "level": 0},
+            style={"font-size": "20px", "font-weight": "bold", "margin-bottom": "20px"},
+        ),
+        html.Div(id="garfield"),
+        modal_tree,
+        dcc.Store(id="itemList_store"),
+        dcc.Store({"type": "datastore", "id": "ils", "level": 2}),
+        html.Div(id="last-clicked-folder", style={"display": "none"}),
+        tabs,
+        # dbc.Card([dbc.CardBody(schema_layout, class_name="mb-3")]),
+    ]
+)
 
 
 @app.callback(
-    Output("my-modal", "is_open"),
+    Output("selectDSAfolder-modal", "is_open"),
     [Input("open-modal-btn", "n_clicks"), Input("close-modal-btn", "n_clicks")],
-    [State("my-modal", "is_open")],
+    [State("selectDSAfolder-modal", "is_open")],
 )
 def toggle_modal(n1, n2, is_open):
     if n1 or n2:
         return not is_open
     return is_open
 
-# if __name__ == "__main__":
-#     app.run_server(debug=True)
 
-
-@app.callback(Output("schema-output", "children"), [Input("my-toggle-switch", "value")])
-def display_output(value):
-    if value:
-        data = {"a": 1, "b": [1, 2, 3, {"c": 4}]}
-        theme = {
-            "scheme": "monokai",
-            "author": "wimer hazenberg (http://www.monokai.nl)",
-            "base00": "#272822",
-            "base01": "#383830",
-            "base02": "#49483e",
-            "base03": "#75715e",
-            "base04": "#a59f85",
-            "base05": "#f8f8f2",
-            "base06": "#f5f4f1",
-            "base07": "#f9f8f5",
-            "base08": "#f92672",
-            "base09": "#fd971f",
-            "base0A": "#f4bf75",
-            "base0B": "#a6e22e",
-            "base0C": "#a1efe4",
-            "base0D": "#66d9ef",
-            "base0E": "#ae81ff",
-            "base0F": "#cc6633",
-        }
-        return dash_renderjson.DashRenderjson(id="input", data=schema, max_depth=-1, theme=theme, invert_theme=True)
-
-@callback(Output('output-data-upload', 'children'),
-          Input('load-test-data-button','n_clicks'),
-          Input('upload-data', 'contents'),
-          State('upload-data', 'filename'),
-          State('upload-data', 'last_modified'))
-def update_output(testdata_n_clicks,list_of_contents, list_of_names, list_of_dates):
+@callback(
+    Output("output-data-upload", "children"),
+    Input("load-test-data-button", "n_clicks"),
+    Input("upload-data", "contents"),
+    State("upload-data", "filename"),
+    State("upload-data", "last_modified"),
+)
+def update_output(testdata_n_clicks, list_of_contents, list_of_names, list_of_dates):
     if testdata_n_clicks or s.TEST_MODE:
         print("test data loader pushed")
         return parse_testfile(s.TEST_FILENAME)
 
     if list_of_contents is not None:
         children = [
-            parse_contents(c, n, d) for c, n, d in
-            zip(list_of_contents, list_of_names, list_of_dates)]
+            parse_contents(c, n, d)
+            for c, n, d in zip(list_of_contents, list_of_names, list_of_dates)
+        ]
         return children
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     app.run_server(debug=True)
 
 
-#I am trying to set up conditional formatting so that if the column name appears in the row error_cols it will highlight that cell in orange
+# I am trying to set up conditional formatting so that if the column name appears in the row error_cols it will highlight that cell in orange
+
+# schema_layout = dbc.Card(
+#     [
+#         daq.ToggleSwitch(id="my-toggle-switch", value=False),
+#         dbc.CardBody(id="schema-output"),
+#     ],
+#     style={"width": "18rem"},
+# )
+
+# @app.callback(Output("schema-output", "children"), [Input("my-toggle-switch", "value")])
+# def display_output(value):
+#     if value:
+#         data = {"a": 1, "b": [1, 2, 3, {"c": 4}]}
+#         theme = {
+#             "scheme": "monokai",
+#             "author": "wimer hazenberg (http://www.monokai.nl)",
+#             "base00": "#272822",
+#             "base01": "#383830",
+#             "base02": "#49483e",
+#             "base03": "#75715e",
+#             "base04": "#a59f85",
+#             "base05": "#f8f8f2",
+#             "base06": "#f5f4f1",
+#             "base07": "#f9f8f5",
+#             "base08": "#f92672",
+#             "base09": "#fd971f",
+#             "base0A": "#f4bf75",
+#             "base0B": "#a6e22e",
+#             "base0C": "#a1efe4",
+#             "base0D": "#66d9ef",
+#             "base0E": "#ae81ff",
+#             "base0F": "#cc6633",
+#         }
+#         return dash_renderjson.DashRenderjson(
+#             id="input", data=schema, max_depth=-1, theme=theme, invert_theme=True
+#         )
