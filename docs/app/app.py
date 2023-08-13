@@ -115,7 +115,6 @@ app.layout = html.Div(
             id={"type": "selected-folder", "id": "TBD", "level": 0},
             style={"font-size": "20px", "font-weight": "bold", "margin-bottom": "20px"},
         ),
-        html.Div(id="garfield"),
         modal_tree,
         dcc.Store(id="itemList_store"),
         dcc.Store({"type": "datastore", "id": "ils", "level": 2}),

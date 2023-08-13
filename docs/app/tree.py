@@ -4,7 +4,7 @@ from dash.dependencies import Input, Output, State, MATCH, ALL
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify
 import dash_bootstrap_components as dbc
-import girder_client
+import girder_client, json
 from dash import dcc, html, callback
 import settings as s
 
@@ -159,16 +159,29 @@ def toggle_folder(n_clicks, folder_id):
 
 
 @callback(
-    # Output({"type": "selected-folder", "id": MATCH, "level": MATCH}, "children"),
-    Output("garfield", "children"),
+    Output("itemList_store", "data"),
     [Input({"type": "folder", "id": ALL, "level": ALL}, "n_clicks")],
     [State({"type": "folder", "id": ALL, "level": ALL}, "id")],
+    prevent_initial_call=True,
 )
 def update_recently_clicked_folder(folder_id, n_clicks):
-    print(folder_id, n_clicks)
+    # print(folder_id, n_clicks)
     trigger = callback_context.triggered[0]
-    print(trigger)
-    return html.Div("I like folders")
+    print(trigger["prop_id"])
+
+    prop_id_string = trigger["prop_id"].rsplit(".", 1)[0]
+    prop_id_dict = json.loads(prop_id_string)
+
+    # prop_id_dict = json.loads(trigger["prop_id"].split(".")[0])
+
+    # Now you can extract the desired values from the dictionary
+    level = prop_id_dict["level"]
+    folder_type = prop_id_dict["type"]
+    folder_id = prop_id_dict["id"]
+
+    print(level, folder_type, folder_id)
+
+    return {}
 
 
 # @callback(
