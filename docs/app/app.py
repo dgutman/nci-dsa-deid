@@ -1,5 +1,6 @@
 import dash_bootstrap_components as dbc
 from deidHelpers import parse_testfile, validate_df, parse_contents
+import dash
 
 # import dash_daq as daq
 import dash_mantine_components as dmc
@@ -71,7 +72,8 @@ tab2_content = dbc.Card(
     dbc.CardBody(
         [
             html.P("Images for DeID", className="card-text"),
-            html.Div("Item Info"),
+            dbc.Button("Check Matches", id="check-match-button"),
+            html.Div(id="itemListinfo"),
         ]
     ),
     className="mt-3",
@@ -100,14 +102,29 @@ metadata_upload_layout = dbc.Container(
     ]
 )
 
+debug_buttons = html.Div(
+    [
+        dbc.Button(
+            "Get DeidFiles",
+            id="load-files-for-deid-button",
+            color="info",
+        ),
+        dbc.Button(
+            "Load Test Data",
+            id="load-test-data-button",
+        ),
+    ]
+)
+
 
 tabs = dbc.Tabs(
     [
-        dbc.Tab(metadata_upload_layout, label="Metadata "),
         dbc.Tab(tab2_content, label="Slides For DeID"),
-        dbc.Tab("Debug Tools", label="Debug Tools"),
+        dbc.Tab(metadata_upload_layout, label="Metadata "),
+        dbc.Tab(debug_buttons, label="Debug Tools"),
     ]
 )
+
 
 app.layout = html.Div(
     [
@@ -123,6 +140,30 @@ app.layout = html.Div(
         # dbc.Card([dbc.CardBody(schema_layout, class_name="mb-3")]),
     ]
 )
+
+
+# @app.callback(
+#     Output("itemList_store", "data"),  # Replace with your DataTable's ID
+#     [Input("check-match-button", "n_clicks")],
+#     [State("metadataTable", "rows"), State("itemList_store", "data")],
+# )
+# def check_name_matches(n, datatable_data, itemlist_data):
+#     print("I like matching")
+#     if not n:
+#         raise dash.exceptions.PreventUpdate
+
+#     # Extract the 'name' column from the parsed contents DataTable
+#     datatable_names = set(row["name"] for row in datatable_data)
+#     print(len(datatable_names), "rows are in the metadata table")
+#     print(len(itemlist_data), "rows are in the current itemlist")
+#     # Extract the 'name' column from the itemList table
+#     itemlist_names = set(row["name"] for row in itemlist_data)
+
+#     # Update the parsed contents DataTable with match results
+#     for row in datatable_data:
+#         row["match_result"] = "Match" if row["name"] in itemlist_names else "No Match"
+
+#     return datatable_data
 
 
 @app.callback(
@@ -157,7 +198,7 @@ def update_output(testdata_n_clicks, list_of_contents, list_of_names, list_of_da
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
+    app.run(debug=True)
 
 
 # I am trying to set up conditional formatting so that if the column name appears in the row error_cols it will highlight that cell in orange
@@ -197,3 +238,22 @@ if __name__ == "__main__":
 #         return dash_renderjson.DashRenderjson(
 #             id="input", data=schema, max_depth=-1, theme=theme, invert_theme=True
 #         )
+
+# dbc.Button("Toggle Panel", id="toggle-panel-btn"),
+#         html.Div("This is a floating panel", id="floating-panel"),
+
+# @app.callback(
+#     Output("floating-panel", "style"),
+#     [Input("toggle-panel-btn", "n_clicks")],
+#     [State("floating-panel", "style")],
+# )
+# def toggle_floating_panel(n_clicks, current_style):
+#     if not n_clicks:
+#         # Default state (can be set to display or not as per your preference)
+#         return {"display": "none"}
+
+#     # Toggle display based on current state
+#     if current_style and current_style.get("display") == "none":
+#         return {"display": "block"}
+#     else:
+#         return {"display": "none"}

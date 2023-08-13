@@ -7,6 +7,7 @@ import dash_bootstrap_components as dbc
 import girder_client, json
 from dash import dcc, html, callback
 import settings as s
+import dash_ag_grid as dag
 
 # # Replace with the base URL of    r DSA
 gc = girder_client.GirderClient(apiUrl=s.DSA_BASE_URL)
@@ -59,15 +60,6 @@ dsa_login_panel = dmc.Grid(
             html.Span(
                 [
                     dbc.Button("DSA Folder", id="open-modal-btn", className="me-1"),
-                    dbc.Button(
-                        "Load Test Data",
-                        id="load-test-data-button",
-                    ),
-                    dbc.Button(
-                        "Get DeidFiles",
-                        id="load-files-for-deid-button",
-                        color="info",
-                    ),
                 ]
             ),
             span=3,
@@ -158,6 +150,26 @@ def toggle_folder(n_clicks, folder_id):
         return [], DashIconify(icon="material-symbols:folder", width=20)
 
 
+@callback(Output("itemListinfo", "children"), [Input("itemList_store", "data")])
+def dumpItemList(itemList):
+    if itemList:
+        print(len(itemList))
+        ## Make this into a datatable...
+        itemTable = dag.AgGrid(
+            id="itemGrid",
+            columnDefs=[
+                {"field": "name"},
+                {"field": "size"},
+                {"field": "_id"},
+                {"field": "match_result"},
+            ],
+            rowData=itemList,
+            defaultColDef={"flex": 1},
+        )
+        return itemTable
+        # return html.Div(json.dumps(itemList, indent=2))
+
+
 @callback(
     Output("itemList_store", "data"),
     [Input({"type": "folder", "id": ALL, "level": ALL}, "n_clicks")],
@@ -178,8 +190,12 @@ def update_recently_clicked_folder(folder_id, n_clicks):
     level = prop_id_dict["level"]
     folder_type = prop_id_dict["type"]
     folder_id = prop_id_dict["id"]
-
     print(level, folder_type, folder_id)
+
+    if level == 2:
+        itemListInfo = list(gc.listItem(folder_id))
+        # print(itemListInfo)
+        return itemListInfo
 
     return {}
 
