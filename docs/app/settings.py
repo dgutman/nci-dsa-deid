@@ -1,15 +1,48 @@
-import json, girder_client
+import json, girder_client, os
+import logging
+from dotenv import load_dotenv
 
 SCHEMA_FILE = "importManifestSchema.json"
-TEST_MODE = True
+TEST_MODE = False
 TEST_FILENAME = "exampleData_112322.csv"
 DSA_BASE_URL = "https://wsi-deid.pathology.emory.edu/api/v1"
+TEST_FOLDERID = "6477c00e309a9ffde6689635"
+DSA_UNFILED_FOLDER = (
+    "/WSI DeID/Unfiled"  ## This is for internal bookkeeping, Will be hidden
+)
 
+DSA_LOGIN_SUCCESS = False
 
 ## During debugging, I am going to get a default item list so I don't have to keep clicking
 gc = girder_client.GirderClient(apiUrl=DSA_BASE_URL)
 
-defaultItemList = list(gc.listItem("6477c00e309a9ffde6689635"))
+defaultItemList = list(gc.listItem(TEST_FOLDERID))
+
+DSAKEY = os.getenv("DSAKEY")
+# DSAKEY = None
+
+if DSAKEY:
+    gc.authenticate(apiKey=DSAKEY)
+    DSA_LOGIN_SUCCESS = True
+
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+# Create a file handler
+log_filename = "app.log"
+file_handler = logging.FileHandler(log_filename)
+file_handler.setLevel(logging.INFO)
+
+# Create a logging format
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+file_handler.setFormatter(formatter)
+
+# Add the handler to the logger
+logger.addHandler(file_handler)
+
 
 ### These are fields that should be copied from the metadata file to the merged file
 COLS_FOR_COPY = [
@@ -27,10 +60,18 @@ COLS_FOR_COPY = [
 
 
 MERGED_COL_DEFS = [
+    {
+        "field": "match_result",
+        "tooltipField": "match_result",
+        "headerName": "Match Result",
+        "width": 30,
+    },
     {"field": "name", "header": "fileName", "tooltipField": "name"},
+    {
+        "field": "OutputFileName",
+        "tooltipField": "OutputFileName",
+    },
     {"field": "size", "header": "File Size"},
-    {"field": "match_result", "tooltipField": "match_result"},
-    {"field": "OutputFileName", "tooltipField": "OutputFileName"},
     {"field": "SampleID"},
     {"field": "REPOSITORY"},
     {"field": "STUDY"},

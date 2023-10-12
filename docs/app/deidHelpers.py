@@ -1,78 +1,18 @@
 from dash import html
 import pandas as pd
 from dash import dash_table
-import datetime, json
 import jsonschema
 from jsonschema import Draft7Validator
 import settings as s
-import io
-import base64
+import io, base64, json, jsonschema, random, datetime
 import dash_ag_grid as dag
+import config
+
+"""This is a set of helper functions for debug purposes for the NCI DEID app
+This includes some cleanup functions to remove images during testing that were uploaded 
+but had parsing issues, as well as functions to test/apply the schema"""
 
 schema = s.SCHEMA
-
-# # Load the JSON schema
-# with open(s.SCHEMA_FILE) as file:
-#     schema = json.load(file)
-
-
-# def parse_contents(contents, filename, date):
-#     content_type, content_string = contents.split(",")
-
-#     decoded = base64.b64decode(content_string)
-#     try:
-#         if "csv" in filename:
-#             # Assume that the user uploaded a CSV file
-#             df = pd.read_csv(io.StringIO(decoded.decode("utf-8")))
-#         elif "xls" in filename:
-#             # Assume that the user uploaded an excel file
-#             df = pd.read_excel(io.BytesIO(decoded))
-#     except Exception as e:
-#         # print(e)
-#         return html.Div(["There was an error processing this file."])
-
-#     # Validate the DataFrame
-#     df = validate_df(df)
-
-#     return html.Div(
-#         [
-#             html.H5(filename),
-#             html.H6(datetime.datetime.fromtimestamp(date)),
-#             # dash_table.DataTable(
-#             #     df.to_dict("records"),
-#             #     [{"name": i, "id": i} for i in df.columns],
-#             #     tooltip_data=[
-#             #         {
-#             #             column: {"value": str(value), "type": "markdown"}
-#             #             for column, value in row.items()
-#             #         }
-#             #         for row in df.to_dict("records")
-#             #     ],
-#             #     tooltip_duration=None,
-#             #     style_data_conditional=[],
-#             #     id="metadataTable",
-#             # ),
-#             dag.AgGrid(
-#                 rowData=df.to_dict("records"),
-#                 columnDefs=[{"headerName": i, "field": i} for i in df.columns],
-#                 # For tooltips and other configurations, you would use the 'gridOptions' parameter
-#                 # Example:
-#                 # gridOptions={
-#                 #     'enableToolPanel': True,
-#                 #     'toolPanelSuppressRowGroups': True,
-#                 #     ...
-#                 # },
-#                 id="dag_metadataTable",
-#             ),
-#             html.Hr(),  # horizontal line
-#             # For debugging, display the raw contents provided by the web browser
-#             html.Div("Raw Content"),
-#             html.Pre(
-#                 contents[0:200] + "...",
-#                 style={"whiteSpace": "pre-wrap", "wordBreak": "break-all"},
-#             ),
-#         ]
-#     )
 
 
 def validate_df(df):
@@ -119,6 +59,214 @@ def read_file_from_contents(contents, filename):
     else:
         raise ValueError("Unsupported file type.")
 
+
+def parse_testfile(filename):
+    """This will parse a file that is local and hardcoded for demo purposes"""
+    try:
+        # Extracting the file extension to determine the filetype
+        filetype = filename.split(".")[-1]
+        df = read_file_from_system(filename, filetype)
+    except Exception as e:
+        return html.Div(["There was an error processing this file."])
+
+    # Validate the DataFrame
+    df = validate_df(df)
+
+    return html.Div(
+        [
+            html.H5(filename),
+            html.H6(datetime.datetime.now()),
+            dag.AgGrid(
+                rowData=df.to_dict("records"),
+                columnDefs=[{"headerName": i, "field": i} for i in df.columns],
+                id="metadataTable",
+            ),
+        ]
+    )
+
+
+def parse_contents(contents, filename, date):
+    # try
+    df = read_file_from_contents(contents, filename)
+    # except Exception as e:
+    #     return html.Div(["There was an error processing this file."])
+
+    print(df)
+    # Validate the DataFrame
+    df = validate_df(df)
+
+    return (
+        html.Div(
+            [
+                html.H5(filename),
+                html.H6(datetime.datetime.fromtimestamp(date)),
+                dag.AgGrid(
+                    rowData=df.to_dict("records"),
+                    columnDefs=[{"headerName": i, "field": i} for i in df.columns],
+                    id="dag_metadataTable",
+                ),
+                html.Hr(),  # horizontal line
+                html.Div("Raw Content"),
+                html.Pre(
+                    contents[0:200] + "...",
+                    style={"whiteSpace": "pre-wrap", "wordBreak": "break-all"},
+                ),
+            ],
+        ),
+        df.to_dict("records"),
+    )
+
+
+def print_all_errors(error_tree):
+    for error in error_tree.errors:
+        print(f"Error at {list(error.path)}: {error.message}")
+
+
+wsiDeidFolderPathsForCleanup = [
+    "/WSI DeID/Unfiled",
+    "/WSI DeID/Redacted",
+    "/WSI DeID/Reports/Import Job Reports",
+    "/WSI DeID/Redacted",
+    "/WSI DeID/Approved",
+]
+
+
+def cleanupFoldersByPath(gc, folderPathList):
+    """This converts a list of paths that are the relative girder path
+    and converts them into actual girder folder objects.. i.e. gives me the _id field
+    I need to access them.  This should also make it easier ti switch between systems
+    since I don't have to hard code _ids which frequently change"""
+    for fpl in folderPathList:
+        f = gc.get(f"resource/lookup?path=/collection{fpl}")
+        results = cleanupFolder(gc, f["_id"])
+        print(
+            f'Deleted {results[0]} items and {results[1]} folders in folder {f["name"]}'
+        )
+
+
+def cleanupFolder(gc, folderId):
+    """This will remove all items and folders from a given input folderID"""
+    ### Get all thei the items in the current Folder and remove them
+    itemsDeleted = 0
+    for i in gc.listItem(folderId):
+        gc.delete(f'item/{i["_id"]}')
+        itemsDeleted += 1
+
+    foldersDeleted = 0
+    for f in gc.listFolder(folderId):
+        gc.delete(f'folder/{f["_id"]}')
+        foldersDeleted += 1
+
+    return itemsDeleted, foldersDeleted
+
+
+def getSchemaValidator():
+    """
+    Return a jsonschema validator.
+
+    :returns: a validator.
+    """
+    return jsonschema.Draft6Validator()
+
+
+def get_standard_redactions_format_aperio(item, tileSource, tiffinfo, title):
+    metadata = tileSource.getInternalMetadata() or {}
+    title_redaction_list_entry = generate_system_redaction_list_entry(title)
+    redactList = {
+        "images": {},
+        "metadata": {
+            "internal;openslide;aperio.Filename": title_redaction_list_entry,
+            "internal;openslide;aperio.Title": title_redaction_list_entry,
+            "internal;openslide;tiff.Software": generate_system_redaction_list_entry(
+                get_deid_field(item, metadata.get("openslide", {}).get("tiff.Software"))
+            ),
+        },
+    }
+    if metadata["openslide"].get("aperio.Date"):
+        redactList["metadata"][
+            "internal;openslide;aperio.Date"
+        ] = generate_system_redaction_list_entry(
+            "01/01/" + metadata["openslide"]["aperio.Date"][6:]
+        )
+    return redactList
+
+
+def get_deid_field(item, prefix=None):
+    """
+    Return a text field with the DeID Upload metadata formatted for storage.
+
+    :param item: the item with data.
+    :returns: the text field.
+    """
+    from . import __version__
+
+    version = "DSA Redaction %s" % __version__
+    if prefix and prefix.strip():
+        if "DSA Redaction" in prefix:
+            prefix.split("DSA Redaction")[0].strip()
+        if prefix:
+            prefix = prefix.strip() + "\n"
+    else:
+        prefix = ""
+    return (
+        prefix
+        + version
+        + "\n"
+        + "|".join(
+            ["%s = %s" % (k, v) for k, v in sorted(get_deid_field_dict(item).items())]
+        )
+    )
+
+
+def get_deid_field_dict(item):
+    """
+    Return a dictionary with custom fields from the DeID Upload metadata.
+
+    :param item: the item with data.
+    :returns: a dictionary of key-vlaue pairs.
+    """
+    deid = item.get("meta", {}).get("deidUpload", {})
+    if not isinstance(deid, dict):
+        deid = {}
+    result = {}
+    limit = config.getConfig("upload_metadata_add_to_images")
+    limit = set(limit if isinstance(limit, (list, set)) else [limit])
+    for k, v in deid.items():
+        if None not in limit and k not in limit:
+            continue
+        result["CustomField.%s" % k] = str(v).replace("|", " ")
+    return result
+
+
+def generate_system_redaction_list_entry(newValue):
+    """Create an entry for the redaction list for a redaction performed by the system."""
+    return {
+        "value": newValue,
+        "reason": "System Redacted",
+    }
+
+
+syntheticData = {
+    "PatientID": ["Patient1", "Patient2", "Case12", "Patient3"],
+    "SampleID": ["One", "Two", "Three"],
+    "REPOSITORY": ["RepoA", "RepoB", "RepoC"],
+    "STUDY": ["ABC", "DEF", "GH"],
+    "PROJECT": ["Mando", "Lorian"],
+    "CASE": ["CaseOne", "Case2", "Case3"],
+    "BLOCK": [1, 2, 3, 4, 5],
+    "INDEX": [1, 2, 3, 4, 5, 6],
+}
+
+
+def generate_random_data(data):
+    random_data = {}
+    for key in data.keys():
+        random_data[key] = random.choice(data[key])
+    return random_data
+
+
+# random_data = generate_random_data(syntheticData)
+# print(random_data)
 
 # def parse_testfile(filename):
 #     """This will parse a file that is local and hardcoded for demo purposes"""
@@ -189,60 +337,139 @@ def read_file_from_contents(contents, filename):
 #         ]
 #     )
 
+# def parse_contents(contents, filename, date):
+#     content_type, content_string = contents.split(",")
 
-def parse_testfile(filename):
-    """This will parse a file that is local and hardcoded for demo purposes"""
-    try:
-        # Extracting the file extension to determine the filetype
-        filetype = filename.split(".")[-1]
-        df = read_file_from_system(filename, filetype)
-    except Exception as e:
-        return html.Div(["There was an error processing this file."])
+#     decoded = base64.b64decode(content_string)
+#     try:
+#         if "csv" in filename:
+#             # Assume that the user uploaded a CSV file
+#             df = pd.read_csv(io.StringIO(decoded.decode("utf-8")))
+#         elif "xls" in filename:
+#             # Assume that the user uploaded an excel file
+#             df = pd.read_excel(io.BytesIO(decoded))
+#     except Exception as e:
+#         # print(e)
+#         return html.Div(["There was an error processing this file."])
 
-    # Validate the DataFrame
-    df = validate_df(df)
+#     # Validate the DataFrame
+#     df = validate_df(df)
 
-    return html.Div(
-        [
-            html.H5(filename),
-            html.H6(datetime.datetime.now()),
-            dag.AgGrid(
-                rowData=df.to_dict("records"),
-                columnDefs=[{"headerName": i, "field": i} for i in df.columns],
-                id="metadataTable",
-            ),
-        ]
-    )
+#     return html.Div(
+#         [
+#             html.H5(filename),
+#             html.H6(datetime.datetime.fromtimestamp(date)),
+#             # dash_table.DataTable(
+#             #     df.to_dict("records"),
+#             #     [{"name": i, "id": i} for i in df.columns],
+#             #     tooltip_data=[
+#             #         {
+#             #             column: {"value": str(value), "type": "markdown"}
+#             #             for column, value in row.items()
+#             #         }
+#             #         for row in df.to_dict("records")
+#             #     ],
+#             #     tooltip_duration=None,
+#             #     style_data_conditional=[],
+#             #     id="metadataTable",
+#             # ),
+#             dag.AgGrid(
+#                 rowData=df.to_dict("records"),
+#                 columnDefs=[{"headerName": i, "field": i} for i in df.columns],
+#                 # For tooltips and other configurations, you would use the 'gridOptions' parameter
+#                 # Example:
+#                 # gridOptions={
+#                 #     'enableToolPanel': True,
+#                 #     'toolPanelSuppressRowGroups': True,
+#                 #     ...
+#                 # },
+#                 id="dag_metadataTable",
+#             ),
+#             html.Hr(),  # horizontal line
+#             # For debugging, display the raw contents provided by the web browser
+#             html.Div("Raw Content"),
+#             html.Pre(
+#                 contents[0:200] + "...",
+#                 style={"whiteSpace": "pre-wrap", "wordBreak": "break-all"},
+#             ),
+#         ]
+#     )
+
+# def validateDataRow(validator, row, rowNumber, df):
+#     """
+#     Validate a row from a dataframe with a jsonschema validator.
+
+#     :param validator: a jsonschema validator.
+#     :param row: a dictionary of row information from the dataframe excluding
+#         the Index.
+#     :param rowNumber: the 1-based row number within the file for error
+#         reporting.
+#     :param df: the pandas dataframe.  Used to determine column number.
+#     :returns: None for no errors, otherwise a list of error messages.
+#     """
+#     # folderNameField = config.getConfig("folder_name_field", "TokenID")
+#     # imageNameField = config.getConfig("image_name_field", "ImageID")
+#     # validateImageIDField = config.getConfig("validate_image_id_field", True)
+#     if validator.is_valid(row):
+#         return
+#     errors = []
+#     for error in validator.iter_errors(row):
+#         try:
+#             columnName = error.path[0]
+#             columnNumber = df.columns.get_loc(columnName)
+#             cellName = openpyxl.utils.cell.get_column_letter(columnNumber + 1) + str(
+#                 rowNumber
+#             )
+#             errorMsg = f"Invalid {columnName} in {cellName}"
+#         except Exception:
+#             errorMsg = f"Invalid row {rowNumber} ({error.message})"
+#             columnNumber = None
+#         errors.append(errorMsg)
+#     if validateImageIDField and row[imageNameField] != "%s_%s_%s" % (
+#         row[folderNameField],
+#         row["Proc_Seq"],
+#         row["Slide_ID"],
+#     ):
+#         errors.append(
+#             f"Invalid ImageID in row {rowNumber}; not composed of TokenID, Proc_Seq, and Slide_ID"
+#         )
+#     return errors
 
 
-def parse_contents(contents, filename, date):
-    try:
-        df = read_file_from_contents(contents, filename)
-    except Exception as e:
-        return html.Div(["There was an error processing this file."])
+# dsaPathToDeid = "/testHALO_import/DCEG/n100 AI"   ## Folder I want to copy over for deidentification
 
-    # Validate the DataFrame
-    df = validate_df(df)
+# importFolderName = "/WSI DeID/Unfiled"  ## This is for internal bookkeeping, Will be hidden
 
-    return html.Div(
-        [
-            html.H5(filename),
-            html.H6(datetime.datetime.fromtimestamp(date)),
-            dag.AgGrid(
-                rowData=df.to_dict("records"),
-                columnDefs=[{"headerName": i, "field": i} for i in df.columns],
-                id="dag_metadataTable",
-            ),
-            html.Hr(),  # horizontal line
-            html.Div("Raw Content"),
-            html.Pre(
-                contents[0:200] + "...",
-                style={"whiteSpace": "pre-wrap", "wordBreak": "break-all"},
-            ),
-        ]
-    )
+# folderToImport = gc.get(f'resource/lookup?path=/collection{dsaPathToDeid}')
 
+# unfiledImageFolder = gc.get(f'resource/lookup?path=/collection/WSI DeID/Unfiled')
+# for i in gc.listItem(folderToImport['_id']):
 
-def print_all_errors(error_tree):
-    for error in error_tree.errors:
-        print(f"Error at {list(error.path)}: {error.message}")
+#     #### AAH SO THE UNFILED OPERATION IS A MOVE EVENT, NOT A COPY EVENT... SO I NEED TO FIRST COPY THEM TO UNFILED
+#     ### AND THEN RUN THIS COMMAND TO AVOID MOVING THE ORIGINAL ITEMS...
+#     ## Using a helper function to generate some random synthetic data
+#     #imageMeta = hlprs.generate_random_data(hlprs.syntheticData)
+
+#     imageMeta = df.loc[df.InputFileName==i['name']].to_dict(orient='record')[0]
+
+#     itemCopyToUnfiled = gc.post(f'item/{i["_id"]}/copy?folderId={unfiledImageFolder["_id"]}')
+#     gc.addMetadataToItem(itemCopyToUnfiled['_id'],{"deidUpload": imageMeta})
+
+#     #Will use the refill API endpoint to copy these images to the target directory, and also rename
+# #     newImageName = f'{imageMeta["PatientID"]}_{imageMeta["BLOCK"]}.{imageMeta["INDEX"]}_WSIDEID'
+#     newImageName = imageMeta['OutputFileName']
+
+#     newImagePath = f'/WSI DeID/AvailableToProcess/{imageMeta["SampleID"]}/{newImageName}.svs'
+#     ## TO DO: ADD File Path Extension programatiicaly
+#     ## See if an image with this name already exists in the AvailableToProcess folder.. this throws an error
+
+#     try:
+#         print("Trying to process item",newImageName,"which I think should go to",newImagePath)
+#         itemCopyOutput = gc.put(f'/wsi_deid/item/{itemCopyToUnfiled["_id"]}/action/refile?imageId={newImageName}&tokenId={imageMeta["SampleID"]}')
+
+#         deidMeta = {**itemCopyOutput["meta"]["deidUpload"], **imageMeta}
+#     #     print(deidMeta)
+#         gc.addMetadataToItem(itemCopyOutput["_id"],{"deidUpload":deidMeta})
+#         print("Adding a new item for",imageMeta['PatientID'])
+#     except:
+#         print("Item already exists...")

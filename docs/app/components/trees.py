@@ -15,6 +15,14 @@ gc = girder_client.GirderClient(apiUrl=s.DSA_BASE_URL)
 collections = gc.get("collection")
 
 
+openTreeModal = dbc.Button(
+    "Select DSA Image Folder",
+    id="open-modal-btn",
+    className="me-1",
+    style={"margin": 10},
+)
+
+
 def folder_div(collection_folder):
     if collection_folder["_modelType"] == "collection":
         level = 1
@@ -53,30 +61,6 @@ def folder_div(collection_folder):
     )
 
 
-dsa_login_panel = dmc.Grid(
-    children=[
-        dmc.Col(html.H1("NCI DeID Upload Agent"), span=3),
-        dmc.Col(
-            html.Span(
-                [
-                    dbc.Button("DSA Folder", id="open-modal-btn", className="me-1"),
-                ]
-            ),
-            span=3,
-        ),
-        dmc.Col(
-            dmc.TextInput(
-                placeholder="Username",
-            ),
-            span=2,
-        ),
-        dmc.Col(dmc.TextInput(placeholder="Password"), span=2),
-        dmc.Col(dmc.Button("Login", variant="filled"), span=1),
-    ],
-    gutter="xl",
-)
-
-
 tree_layout = html.Div(
     [
         dcc.Markdown("## Folder Tree"),
@@ -99,7 +83,6 @@ tree_layout = html.Div(
 )
 
 
-# )
 @callback(
     [
         Output({"type": "subfolders", "id": MATCH, "level": MATCH}, "children"),
@@ -125,7 +108,9 @@ def toggle_folder(n_clicks, folder_id):
 
         if not subfolders:  # Check if subfolders list is empty
             return (
-                html.Div("No subfolders available."),
+                html.Div(
+                    "No subfolders available.", style={"margin-left": f"{20*(level)}px"}
+                ),
                 DashIconify(icon="material-symbols:folder", width=20),
             )
         return (
@@ -144,18 +129,29 @@ def toggle_folder(n_clicks, folder_id):
 @callback(Output("itemListinfo", "children"), [Input("itemList_store", "data")])
 def dumpItemList(itemList):
     if itemList:
-        print(len(itemList))
         ## Make this into a datatable...
         itemTable = dag.AgGrid(
             id="itemGrid",
+            columnSize="autoSize",
             columnDefs=[
-                {"field": "name"},
-                {"field": "size"},
-                {"field": "_id"},
-                {"field": "match_result"},
+                {"field": "name", "headerName": "Filename"},
+                {
+                    "field": "size",
+                    "headerName": "File Size",
+                    "width": 150,
+                    "columnSize": "autoSize",
+                },
+                {"field": "_id", "headerName": "DSA ID"},
+                {"field": "match_result", "headerName": "Matching Metadata"},
             ],
             rowData=itemList,
-            defaultColDef={"flex": 1},
+            defaultColDef={
+                "resizable": True,
+                "sortable": True,
+                "filter": True,
+                "flex": 1,
+                # "columnSize": "autoSize",
+            },
         )
         return itemTable
         # return html.Div(json.dumps(itemList, indent=2))
@@ -170,7 +166,7 @@ def dumpItemList(itemList):
 def update_recently_clicked_folder(folder_id, n_clicks):
     # print(folder_id, n_clicks)
     trigger = callback_context.triggered[0]
-    print(trigger["prop_id"])
+    # print(trigger["prop_id"])
 
     prop_id_string = trigger["prop_id"].rsplit(".", 1)[0]
     prop_id_dict = json.loads(prop_id_string)
@@ -181,7 +177,7 @@ def update_recently_clicked_folder(folder_id, n_clicks):
     level = prop_id_dict["level"]
     folder_type = prop_id_dict["type"]
     folder_id = prop_id_dict["id"]
-    print(level, folder_type, folder_id)
+    # print(level, folder_type, folder_id)
 
     if level == 2:
         itemListInfo = list(gc.listItem(folder_id))

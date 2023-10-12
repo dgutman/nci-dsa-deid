@@ -1,5 +1,5 @@
 # Standard Libraries
-import json
+import json, os
 import datetime
 
 # Third-party libraries
@@ -7,27 +7,27 @@ import dash_bootstrap_components as dbc
 import dash
 import dash_ag_grid as dag
 import dash_daq as daq
-from dash import (
-    Dash,
-    Input,
-    Output,
-    State,
-    callback,
-    callback_context,
-    dash_table,
-    dcc,
-    html,
-)
+import logging
+from dash import Dash, Input, Output, State, callback, callback_context, dcc, html, ctx
 from jsonschema import Draft7Validator
+import girder_client
+
+from components.merged_dataview_panel import merged_data_panel
 
 # Local modules
 from deidHelpers import parse_testfile, validate_df, parse_contents
-from components.modals import modal_tree
-from components.tabs import tab1_content, tab2_content
-from components.trees import (
+
+
+# from components.modals import modal_tree
+from components.tabs import slideListTab_content
+from components.dsa_login_panel import (
     dsa_login_panel,
+    # dsa_login_authenticated,
 )  # Replace with specific components you need
 import settings as s
+from settings import gc
+import dash_mantine_components as dmc
+import components.instructionPanel as ip
 
 
 external_stylesheets = [
@@ -75,48 +75,210 @@ debug_buttons = html.Div(
             "Load Test Data",
             id="load-test-data-button",
         ),
+        dbc.Button("Log Something", id="log-button"),
+        dbc.Row(
+            dbc.Card(
+                dbc.CardBody(
+                    [
+                        html.P("Error and Status Logs", className="card-text"),
+                        html.Div(
+                            id="log-output",
+                            style={
+                                "height": "300px",
+                                "overflow": "auto",
+                                "border": "1px solid black",
+                            },  # Scrollable styles
+                        ),
+                    ]
+                ),
+                className="mt-3",
+            )
+        ),
     ]
 )
 
-merged_data = html.Div([html.Div(id="mergedImageSet")])
 
-# tabs = dbc.Tabs(
-#     [
-#         dbc.Tab(tab2_content, label="Slides For DeID"),
-#         dbc.Tab(metadata_upload_layout, label="Metadata "),
-#         dbc.Tab(debug_buttons, label="Debug Tools"),
-#         dbc.Tab(merged_data, label="merged Data"),
-#     ]
-# )
+instructions_tab = dbc.Card(
+    dbc.CardBody(
+        [
+            html.Div(
+                [ip.app_instructions],
+                style={
+                    "height": "500px",  # You can adjust this value to your desired height
+                    # "flex": "1",
+                    "overflow-y": "auto",
+                },
+            ),
+        ]
+    ),
+    className="mt-3",
+)
+
 
 tabs = dbc.Tabs(
     [
-        dbc.Tab(tab2_content, label="Slides For DeID", tab_id="slides-for-deid"),
-        dbc.Tab(metadata_upload_layout, label="Metadata ", tab_id="metadata"),
+        dbc.Tab(
+            slideListTab_content, label="Slides For DeID", tab_id="slides-for-deid"
+        ),
+        dbc.Tab(metadata_upload_layout, label="Slide Metadata ", tab_id="metadata"),
         dbc.Tab(debug_buttons, label="Debug Tools", tab_id="debug-tools"),
-        dbc.Tab(merged_data, label="merged Data", tab_id="merged-data"),
+        dbc.Tab(merged_data_panel, label="Merged Data", tab_id="merged-data"),
+        dbc.Tab(instructions_tab, label="Instructions", tab_id="intructions-tab"),
     ],
     id="main-tabs",
 )
 
 
-app.layout = html.Div(
-    [
-        html.Div(
-            id={"type": "selected-folder", "id": "TBD", "level": 0},
-            style={"font-size": "20px", "font-weight": "bold", "margin-bottom": "20px"},
-        ),
-        modal_tree,
-        dsa_login_panel,
-        dcc.Store(id="itemList_store", data=s.defaultItemList),
-        dcc.Store(id="metadata_store"),
-        dcc.Store(id="mergedItem_store"),
-        dcc.Store({"type": "datastore", "id": "ils", "level": 2}),
-        html.Div(id="last-clicked-folder", style={"display": "none"}),
-        tabs,
-        # dbc.Card([dbc.CardBody(schema_layout, class_name="mb-3")]),
-    ]
+## TO DO .. MAKE THIS ASYNCHRONOUS WITH CALLBACK AT ON THE SCREEN THAT ALSO DISALES THE SUBMIT BUTTON!!
+
+
+@app.callback(
+    Output(
+        "output-for-deid", "children"
+    ),  # You can use a dummy div to output results or messages if necessary
+    Input("submit-deid-button", "n_clicks"),
+    State("mergedItem_store", "data"),
 )
+def submit_for_deid(n_clicks, data):
+    if not n_clicks:
+        raise dash.exceptions.PreventUpdate
+
+    if not data:
+        raise dash.exceptions.PreventUpdate
+        ### Should also maybe throw an exception to the screen.. TBD
+
+    for row in data:
+        if row["match_result"] == "Match":
+            submitImageForDeId(row)
+
+    return "Images submitted for DeID!"  # or any other message or result you want to display
+
+
+## TO DO.. ADD MORE LOGIC HERE
+def submitImageForDeId(row):
+    # Your logic for submitting the image for DeID goes here
+    unfiledFolder = gc.get(f"resource/lookup?path=/collection{s.DSA_UNFILED_FOLDER}")
+    # print(f"Copying {row['name']} to unfiled directory")
+    ## DO NOT COPY IF THE FILE IS ALREADY THERE.. THIS IS WHAT IS CAUSING ALL THE ERRORS
+
+    unfiledItemList = list(gc.listItem(unfiledFolder["_id"]))
+
+    # "copyOfItem": "6477c0b7309a9ffde6689a0d",
+    originalItemId_to_unfiledItemId = {}
+
+    ##Sometimes files are already in the unfiled Folder, so I am looking up the references here
+
+    for x in unfiledItemList:
+        originalItemId_to_unfiledItemId[x.get("copyOfItem", None)] = x
+
+    if row["_id"] not in originalItemId_to_unfiledItemId:
+        itemCopyToUnfiled = gc.post(
+            f'item/{row["_id"]}/copy?folderId={unfiledFolder["_id"]}'
+        )
+    else:
+        itemCopyToUnfiled = originalItemId_to_unfiledItemId[row["_id"]]
+
+    print("--------")
+    print(itemCopyToUnfiled)
+    print("------")
+
+    imageMeta = row
+
+    s.gc.addMetadataToItem(itemCopyToUnfiled["_id"], {"deidUpload": row})
+
+    newImageName = row["OutputFileName"]
+
+    newImagePath = f'WSI DeID/AvailableToProcess/{row["SampleID"]}/{newImageName}'
+    # print("Trying to now put it here...?", newImagePath)
+
+    try:
+        fileUrl = f"resource/lookup?path=/collection/{newImagePath}.svs"  ## DEID adds extension during move
+        # print(fileUrl)
+        fileExists = gc.get(fileUrl)
+        fileExists = True
+    except:
+        # print("File lookup failed, so this must not already be copied")
+        fileExists = False
+    ### See if the resource already exists..
+
+    if not fileExists:
+        # print("Staging file for DEID...")
+        # print(itemCopyToUnfiled, "Is item I am trying to move...")
+        # print(newImageName)
+        # print(imageMeta)
+
+        imageFileUrl = f'wsi_deid/item/{itemCopyToUnfiled["_id"]}/action/refile?imageId={newImageName}&tokenId={imageMeta["SampleID"]}'
+        print(imageFileUrl)
+
+        try:
+            itemCopyOutput = gc.put(imageFileUrl)
+
+            print(itemCopyOutput, "Is item copy output..")
+            deidMeta = {**itemCopyOutput["meta"]["deidUpload"], **imageMeta}
+            #     print(deidMeta)
+            print(deidMeta)
+            gc.addMetadataToItem(itemCopyOutput["_id"], {"deidUpload": imageMeta})
+            print("Adding a new item for", row["SampleID"])
+        except girder_client.HttpError as e:
+            print(e)
+        ## TO DO.. MOVE THIS TO THE DEBUG AREA
+
+
+app.layout = dmc.NotificationsProvider(
+    html.Div(
+        [
+            html.Script(src="/assets/customRenderer.js"),
+            html.Div(
+                id={"type": "selected-folder", "id": "TBD", "level": 0},
+                style={
+                    "font-size": "20px",
+                    "font-weight": "bold",
+                    "margin-bottom": "20px",
+                },
+            ),
+            # modal_tree,
+            dsa_login_panel,
+            dcc.Store(id="itemList_store", data=s.defaultItemList),
+            dcc.Store(id="metadata_store"),
+            dcc.Store(id="mergedItem_store"),
+            html.Div(id="notifications-container"),
+            dcc.Interval(
+                id="log-interval", interval=5 * 1000, n_intervals=0
+            ),  # Update every 5 seconds
+            html.Div(id="output-for-deid"),
+            dcc.Store({"type": "datastore", "id": "ils", "level": 2}),
+            html.Div(id="last-clicked-folder", style={"display": "none"}),
+            tabs,
+            # dbc.Card([dbc.CardBody(schema_layout, class_name="mb-3")]),
+        ]
+    )
+)
+
+
+@app.callback(
+    Output("log-output", "children"),
+    Input("log-interval", "n_intervals"),
+    Input("log-button", "n_clicks"),
+    prevent_initial_call=True,
+)
+def update_log(n, clicks):
+    # This captures the current log content
+    # print("The DSA Login is authenticated?", s.DSA_LOGIN_SUCCESS)
+
+    with open(s.logger.handlers[0].baseFilename, "r") as f:
+        log_content = f.read()
+    ## In this case the n refers to the internal not the clicks..
+    # Check which input triggered the callback
+    ctx = dash.callback_context
+    if ctx.triggered[0]["prop_id"] == "log-button.n_clicks":
+        s.logger.info("Button was clicked! %d " % clicks)
+
+    return html.Pre(log_content)
+
+
+global log_updated
+
+log_updated = False
 
 
 @app.callback(
@@ -124,59 +286,62 @@ app.layout = html.Div(
         Output("mergedItem_store", "data"),
         Output("main-tabs", "active_tab"),  # Add this line
     ],
-    [Input("check-match-button", "n_clicks")],
-    [State("metadata_store", "data"), State("itemList_store", "data")],
+    Input("check-match-button", "n_clicks"),
+    Input("no-meta-deid-button", "n_clicks"),
+    State("metadata_store", "data"),
+    State("itemList_store", "data"),
     prevent_initial_call=True,
 )
-def check_name_matches(n, metadata, itemlist_data):
-    if not n:
-        raise dash.exceptions.PreventUpdate
+def check_name_matches(checkmatch_clicks, nometa_button, metadata, itemlist_data):
+    # ctx_msg = json.dumps(
+    #     {"states": ctx.states, "triggered": ctx.triggered, "inputs": ctx.inputs},
+    #     indent=2,
+    # )
+
+    ## Should be based on the context... need to debug
+    if nometa_button:
+        ### Pathway for dealing with justDeID button
+        # if ctx.triggered_id == "no-meta-deid-button":
+        ## Secondary pathway.. just copies blank metadata
+        ## Walk through the itemList and just generate null metadata
+        for row in itemlist_data:
+            row["match_result"] = "Match"
+            for idx, col in enumerate(s.COLS_FOR_COPY):
+                row[col] = str(idx)
+            row["valid"] = True
+            # print(itemlist_data)
+            # row["OutputFileName"] = row["name"].replace(".svs", ".deid.svs")
+            row["OutputFileName"] = os.path.splitext(row["name"])[0] + ".deid.svs"
+            # print(os.path.splitext(row["name"]))
+        return itemlist_data, "merged-data"
 
     # Create a mapping from filename to its metadata
-    metadata_mapping = {row["InputFileName"]: row for row in metadata}
+    ### Make sure I only run this is there is actually metadata..
+    if metadata:
+        metadata_mapping = {row["InputFileName"]: row for row in metadata}
 
-    print(len(metadata), "rows are in the metadata table")
-    print(len(itemlist_data), "rows are in the current itemlist")
+        s.logger.info(f"{len(metadata)} rows are in the metadata table")
+        s.logger.info(f"{len(itemlist_data)} rows are in the current itemlist")
 
-    try:
-        for row in itemlist_data:
-            if row["name"] in metadata_mapping:
-                row["match_result"] = "Match"
-                matched_metadata = metadata_mapping[row["name"]]
-                for col in s.COLS_FOR_COPY:
-                    if (
-                        col in matched_metadata
-                    ):  # Ensure the column exists in the metadata
-                        row[col] = matched_metadata[col]
-            else:
-                row["match_result"] = "No Match"
-            row["valid"] = True
-        return itemlist_data, "merged-data"
-    except Exception as e:
-        print("Something broke:", e)
-        return None, "merged-data"
+        try:
+            for row in itemlist_data:
+                if row["name"] in metadata_mapping:
+                    row["match_result"] = "Match"
+                    matched_metadata = metadata_mapping[row["name"]]
+                    for col in s.COLS_FOR_COPY:
+                        if (
+                            col in matched_metadata
+                        ):  # Ensure the column exists in the metadata
+                            row[col] = matched_metadata[col]
+                else:
+                    row["match_result"] = "No Match"
+                row["valid"] = True
 
-
-# def check_name_matches(n, metadata, itemlist_data):
-#     if not n:
-#         raise dash.exceptions.PreventUpdate
-
-#     #     # Extract the 'name' column from the parsed contents DataTable
-#     filenames_from_metadata = set(row["InputFileName"] for row in metadata)
-#     #     # Extract the 'name' column from the itemList table
-#     itemlist_names = set(row["name"] for row in itemlist_data)
-#     print(len(metadata), "rows are in the metadata table")
-#     print(len(itemlist_data), "rows are in the current itemlist")
-
-#     try:
-#         for row in itemlist_data:
-#             row["match_result"] = (
-#                 "Match" if row["name"] in filenames_from_metadata else "No Match"
-#             )
-#             row["valid"] = True
-#         return itemlist_data, "merged-data"
-#     except:
-#         print("Something broke")
+            return itemlist_data, "merged-data"
+        except Exception as e:
+            print("Something broke:", e)
+            return None, "slides-for-deid"
+    return None, "slides-for-deid"
 
 
 @app.callback(Output("mergedImageSet", "children"), Input("mergedItem_store", "data"))
@@ -201,9 +366,9 @@ def updateMergedDatatable(mergeddata):
                 defaultColDef=dict(
                     resizable=True,
                     editable=True,
-                    minWidth=50,
+                    minWidth=30,
                     sortable=True,
-                    maxWidth=150,
+                    # maxWidth=200,
                     columnSize="autoSize",
                     cellStyle={
                         "styleConditions": [
@@ -225,89 +390,16 @@ def updateMergedDatatable(mergeddata):
                         ]
                     },
                 ),
-                dashGridOptions={"toolTipShowDelay": 10, "rowSelection": "single"}
-                # defaultColDef=dict(
-                #     resizable=True,
-                #     cellStyle={
-                #         "styleConditions": [
-                #             {
-                #                 "condition": "param.value == 'Match",
-                #                 "style": {"color": "green"},
-                #             }
-                #         ]
-                #     },
-                # ),
-                # # dashGridOptions={
-                #     "getRowStyle": """
-                #     function(params) {
-                #         if (params.node.data.match_result == 'Match') {
-                #             return params.node.data.match_result_style;
-                #         }
-                #         if (params.node.data.valid) {
-                #             return params.node.data.valid_style;
-                #         }
-                #     }
-                #     """
-                # },
-            )
+                dashGridOptions={
+                    "toolTipShowDelay": 5,
+                    "rowSelection": "single",
+                    "rowHeight": 20,
+                },
+            ),
         ]
         return merged_grid
     else:
         return [html.Div()]
-
-
-# @app.callback(Output("mergedImageSet", "children"), Input("mergedItem_store", "data"))
-# def updateMergedDatatable(mergeddata):
-#     if mergeddata:
-#         for row in mergeddata:
-#             if row["match_result"] == "Match":
-#                 row["match_result_style"] = {"backgroundColor": "orange"}
-#             if row["valid"]:
-#                 row["valid_style"] = {"backgroundColor": "green"}
-
-#         merged_grid = [
-#             dag.AgGrid(
-#                 rowData=mergeddata,
-#                 columnDefs=s.MERGED_COL_DEFS,
-#                 cellStyle={"field": "match_result", "styleField": "match_result_style"},
-#                 cellStyle={"field": "valid", "styleField": "valid_style"},
-#             )
-#         ]
-#         return merged_grid
-#     else:
-#         return [html.Div()]
-
-
-# In this approach, we're computing the styles in Python and adding them to each row in the rowData. The cellStyle property in dag.AgGrid is then used to apply these styles based on the specified conditions.
-
-# However, please note that I'm making an assumption about how dag.AgGrid works based on your previous code and the error you encountered. The exact implementation might differ, and you may need to refer to the documentation for dag.AgGrid to ensure you're using the correct properties and syntax.
-
-
-# def updateMergedDatatable(mergeddata):
-#     if mergeddata:
-#         print(mergeddata[0]["name"])
-#         # print("yo   ")
-
-#         merged_grid = [
-#             dag.AgGrid(
-#                 rowData=mergeddata,
-#                 columnDefs=s.MERGED_COL_DEFS
-#                 # [
-#                 #     {"headerName": i, "field": i} for i in mergeddata[0].keys()
-#                 # ],
-#                 # For tooltips and other configurations, you would use the 'gridOptions' parameter
-#                 # Example:
-#                 # gridOptions={
-#                 #     'enableToolPanel': True,
-#                 #     'toolPanelSuppressRowGroups': True,
-#                 #     ...
-#                 # },
-#             )
-#         ]
-
-#         return merged_grid
-#     else:
-#         return [html.Div()]
 
 
 @app.callback(
@@ -321,35 +413,48 @@ def toggle_modal(n1, n2, is_open):
     return is_open
 
 
+### Can also create an error data store where I log output, and then clear this as needed
+
+
+### Changing this to deal with only a single input..
 @callback(
     Output("output-data-upload", "children"),
+    Output("metadata_store", "data", allow_duplicate=True),
     Input("load-test-data-button", "n_clicks"),
     Input("upload-data", "contents"),
     State("upload-data", "filename"),
     State("upload-data", "last_modified"),
+    prevent_initial_call=True,
 )
-def update_output(testdata_n_clicks, list_of_contents, list_of_names, list_of_dates):
+def update_output(testdata_n_clicks, file_content, file_name, file_upload_date):
     if testdata_n_clicks or s.TEST_MODE:
-        print("test data loader pushed")
+        # print("test data loader pushed")
         return parse_testfile(s.TEST_FILENAME)
 
-    if list_of_contents is not None:
-        children = [
-            parse_contents(c, n, d)
-            for c, n, d in zip(list_of_contents, list_of_names, list_of_dates)
-        ]
-        return children
+    ### TO DO:  Handle exceptoin better, may want to use the mantine_notification provider
+    valid_extensions = ("csv", "xlsx")
+    if file_name.endswith(valid_extensions):
+        print("Valid extension found")
+    else:
+        print("Invalid exception found")
+        return [html.Div()], {}
+    ### Check and see if the file_name ends with .csv or .xlsx
 
+    if file_content is not None:
+        uploaded_file_layout, uploaded_file_data = parse_contents(
+            file_content, file_name, file_upload_date
+        )
 
-## To refactor... the metadata store should be populating the metadatatable , not vice
-@callback(Output("metadata_store", "data"), Input("metadataTable", "rowData"))
-def updateMetadataStore(metadata):
-    # print(len(metadata))
-    return metadata
+        return [uploaded_file_layout], uploaded_file_data
+
+    return [html.Div()], {}
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    ## Clear the log between restarts
+    with open(s.log_filename, "w"):
+        pass
+    app.run(debug=True, host="0.0.0.0")
 
 
 # I am trying to set up conditional formatting so that if the column name appears in the row error_cols it will highlight that cell in orange

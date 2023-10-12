@@ -1,7 +1,7 @@
 # components/modals.py
 
 import dash_bootstrap_components as dbc
-from .trees import tree_layout, dsa_login_panel
+from .trees import tree_layout
 
 modal_tree = dbc.Container(
     [
@@ -17,4 +17,3 @@ modal_tree = dbc.Container(
         ),
     ]
 )
-
