@@ -1,5 +1,9 @@
 ##Helper Functions to generate datamatrix barcodes
 from PIL import ImageFont, Image, ImageDraw, ImageColor
+import pylibdmtx
+
+# from pylibdmtx.pylibdmtx import encode
+
 from pylibdmtx.pylibdmtx import encode
 import math, json
 import PIL
@@ -16,6 +20,7 @@ def add_barcode_to_image(
     textColor="#000000",
     square=True,
     item=None,
+    logoImageFile="NCI-logo-300x165.jpg",
 ):
     """
     Add both a title and a barcode to an image.  If the image doesn't exist, a new image is made
@@ -70,7 +75,10 @@ def add_barcode_to_image(
     imageDraw = ImageDraw.Draw(newImage)
     imageDraw.rectangle((0, 0, targetW, titleH), fill=background, outline=None, width=0)
     imageDraw.text(
-        xy=(int((targetW - textW) / 2), int((titleH - textH) / 2)), text=title, fill=textColor, font=imageDrawFont
+        xy=(int((targetW - textW) / 2), int((titleH - textH) / 2)),
+        text=title,
+        fill=textColor,
+        font=imageDrawFont,
     )
 
     barcodeData = encode_barcode_string(item, keysForBarcode)
@@ -81,7 +89,7 @@ def add_barcode_to_image(
     newImage.paste(img, (barcodeXoffset, int(minWidth / 6)))
 
     ## TO DO make this a global parameter
-    logoImageFile = "/opt/nci-dsa-deid/nci_dsa_deid/NCI-logo-300x165.jpg"
+    # logoImageFile = "/opt/nci-dsa-deid/nci_dsa_deid/NCI-logo-300x165.jpg"
     logoImg = Image.open(logoImageFile)
 
     logoOffsetX = int((targetW - logoImg.size[0]) / 2)
@@ -103,20 +111,27 @@ def encode_barcode_string(item, keys_to_encode):
     starts getting out of hand, I don't want a 4kx4k barcode
 
     """
-
+    # print(item)
     deidDict = item["meta"]["deidUpload"]
     ### We are placing the validated schema data at item.meta.deidUpload
 
     barcodeText = ""
     for k in keys_to_encode:
         if k in deidDict:
-
             barcodeText += "%s,%s|" % (k, deidDict[k])
-    print(barcodeText)
+    # print(barcodeText)
     return barcodeText[:-1]  ## Strip off the final |
 
 
-def computeFontSize(targetW, fontSize, title, mode="RGB", minWidth=384):
+def computeFontSize(
+    targetW,
+    fontSize,
+    title,
+    mode="RGB",
+    minWidth=384,
+    fontFile="DejaVuSansMono.ttf",
+    defaultFontSizeValue=8,
+):
     ### Want to compute the biggest font that will fit in the allocated space for readbility
 
     # Build an empty image
@@ -126,7 +141,8 @@ def computeFontSize(targetW, fontSize, title, mode="RGB", minWidth=384):
     for iter in range(3, 0, -1):
         try:
             imageDrawFont = ImageFont.truetype(
-                font="/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", size=int(fontSize * targetW)
+                fontFile,
+                size=int(fontSize * targetW),
             )
         except IOError:
             try:
@@ -134,6 +150,12 @@ def computeFontSize(targetW, fontSize, title, mode="RGB", minWidth=384):
             except IOError:
                 imageDrawFont = PIL.ImageFont.load_default()
         textW, textH = imageDraw.textsize(title, imageDrawFont)
+
+        if textW == 0 or not textW:
+            # Either skip the calculation or set a default value for fontSize
+            textW = 0.2  # set this to a reasonable default
+
+        # print(fontSize, "is font size..")
         if iter != 1 and (textW > targetW * 0.95 or textW < targetW * 0.85):
             fontSize = fontSize * targetW * 0.9 / textW
 

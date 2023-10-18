@@ -8,11 +8,14 @@ import dash
 import dash_ag_grid as dag
 import dash_daq as daq
 import logging
-from dash import Dash, Input, Output, State, callback, callback_context, dcc, html, ctx
+from dash import Dash, State, callback, callback_context, dcc, ctx
 from jsonschema import Draft7Validator
 import girder_client
 
-from components.merged_dataview_panel import merged_data_panel
+from dash_extensions.enrich import Output, DashProxy, Input, MultiplexerTransform, html
+
+
+from components.merged_dataview_panel import merged_data_panel, checkForExistingFile
 
 # Local modules
 from deidHelpers import parse_testfile, validate_df, parse_contents
@@ -34,10 +37,13 @@ external_stylesheets = [
     "https://codepen.io/chriddyp/pen/bWLwgP.css",
     dbc.themes.BOOTSTRAP,
 ]
-app = Dash(
+
+
+app = DashProxy(
     __name__,
     external_stylesheets=external_stylesheets,
     suppress_callback_exceptions=True,
+    transforms=[MultiplexerTransform()],
 )
 
 schema = s.SCHEMA
@@ -132,96 +138,26 @@ tabs = dbc.Tabs(
 ## TO DO .. MAKE THIS ASYNCHRONOUS WITH CALLBACK AT ON THE SCREEN THAT ALSO DISALES THE SUBMIT BUTTON!!
 
 
-@app.callback(
-    Output(
-        "output-for-deid", "children"
-    ),  # You can use a dummy div to output results or messages if necessary
-    Input("submit-deid-button", "n_clicks"),
-    State("mergedItem_store", "data"),
-)
-def submit_for_deid(n_clicks, data):
-    if not n_clicks:
-        raise dash.exceptions.PreventUpdate
+# @app.callback(
+#     Output(
+#         "output-for-deid", "children"
+#     ),  # You can use a dummy div to output results or messages if necessary
+#     Input("submit-deid-button", "n_clicks"),
+#     State("mergedItem_store", "data"),
+# )
+# def submit_for_deid(n_clicks, data):
+#     if not n_clicks:
+#         raise dash.exceptions.PreventUpdate
 
-    if not data:
-        raise dash.exceptions.PreventUpdate
-        ### Should also maybe throw an exception to the screen.. TBD
+#     if not data:
+#         raise dash.exceptions.PreventUpdate
+#         ### Should also maybe throw an exception to the screen.. TBD
 
-    for row in data:
-        if row["match_result"] == "Match":
-            submitImageForDeId(row)
+#     for row in data:
+#         if row["match_result"] in ["Match", "NoMeta"]:
+#             submitImageForDeId(row)
 
-    return "Images submitted for DeID!"  # or any other message or result you want to display
-
-
-## TO DO.. ADD MORE LOGIC HERE
-def submitImageForDeId(row):
-    # Your logic for submitting the image for DeID goes here
-    unfiledFolder = gc.get(f"resource/lookup?path=/collection{s.DSA_UNFILED_FOLDER}")
-    # print(f"Copying {row['name']} to unfiled directory")
-    ## DO NOT COPY IF THE FILE IS ALREADY THERE.. THIS IS WHAT IS CAUSING ALL THE ERRORS
-
-    unfiledItemList = list(gc.listItem(unfiledFolder["_id"]))
-
-    # "copyOfItem": "6477c0b7309a9ffde6689a0d",
-    originalItemId_to_unfiledItemId = {}
-
-    ##Sometimes files are already in the unfiled Folder, so I am looking up the references here
-
-    for x in unfiledItemList:
-        originalItemId_to_unfiledItemId[x.get("copyOfItem", None)] = x
-
-    if row["_id"] not in originalItemId_to_unfiledItemId:
-        itemCopyToUnfiled = gc.post(
-            f'item/{row["_id"]}/copy?folderId={unfiledFolder["_id"]}'
-        )
-    else:
-        itemCopyToUnfiled = originalItemId_to_unfiledItemId[row["_id"]]
-
-    print("--------")
-    print(itemCopyToUnfiled)
-    print("------")
-
-    imageMeta = row
-
-    s.gc.addMetadataToItem(itemCopyToUnfiled["_id"], {"deidUpload": row})
-
-    newImageName = row["OutputFileName"]
-
-    newImagePath = f'WSI DeID/AvailableToProcess/{row["SampleID"]}/{newImageName}'
-    # print("Trying to now put it here...?", newImagePath)
-
-    try:
-        fileUrl = f"resource/lookup?path=/collection/{newImagePath}.svs"  ## DEID adds extension during move
-        # print(fileUrl)
-        fileExists = gc.get(fileUrl)
-        fileExists = True
-    except:
-        # print("File lookup failed, so this must not already be copied")
-        fileExists = False
-    ### See if the resource already exists..
-
-    if not fileExists:
-        # print("Staging file for DEID...")
-        # print(itemCopyToUnfiled, "Is item I am trying to move...")
-        # print(newImageName)
-        # print(imageMeta)
-
-        imageFileUrl = f'wsi_deid/item/{itemCopyToUnfiled["_id"]}/action/refile?imageId={newImageName}&tokenId={imageMeta["SampleID"]}'
-        print(imageFileUrl)
-
-        try:
-            itemCopyOutput = gc.put(imageFileUrl)
-
-            print(itemCopyOutput, "Is item copy output..")
-            deidMeta = {**itemCopyOutput["meta"]["deidUpload"], **imageMeta}
-            #     print(deidMeta)
-            print(deidMeta)
-            gc.addMetadataToItem(itemCopyOutput["_id"], {"deidUpload": imageMeta})
-            print("Adding a new item for", row["SampleID"])
-        except girder_client.HttpError as e:
-            print(e)
-        ## TO DO.. MOVE THIS TO THE DEBUG AREA
+#     return "Images submitted for DeID!"  # or any other message or result you want to display
 
 
 app.layout = dmc.NotificationsProvider(
@@ -263,7 +199,6 @@ app.layout = dmc.NotificationsProvider(
 )
 def update_log(n, clicks):
     # This captures the current log content
-    # print("The DSA Login is authenticated?", s.DSA_LOGIN_SUCCESS)
 
     with open(s.logger.handlers[0].baseFilename, "r") as f:
         log_content = f.read()
@@ -293,26 +228,22 @@ log_updated = False
     prevent_initial_call=True,
 )
 def check_name_matches(checkmatch_clicks, nometa_button, metadata, itemlist_data):
-    # ctx_msg = json.dumps(
-    #     {"states": ctx.states, "triggered": ctx.triggered, "inputs": ctx.inputs},
-    #     indent=2,
-    # )
-
     ## Should be based on the context... need to debug
     if nometa_button:
         ### Pathway for dealing with justDeID button
-        # if ctx.triggered_id == "no-meta-deid-button":
         ## Secondary pathway.. just copies blank metadata
         ## Walk through the itemList and just generate null metadata
         for row in itemlist_data:
-            row["match_result"] = "Match"
+            row["match_result"] = "NoMeta"
+            row["curDsaPath"] = None
             for idx, col in enumerate(s.COLS_FOR_COPY):
                 row[col] = str(idx)
             row["valid"] = True
-            # print(itemlist_data)
-            # row["OutputFileName"] = row["name"].replace(".svs", ".deid.svs")
             row["OutputFileName"] = os.path.splitext(row["name"])[0] + ".deid.svs"
-            # print(os.path.splitext(row["name"]))
+
+            deidFileStatus = checkForExistingFile(row["OutputFileName"])
+            row["curDsaPath"] = deidFileStatus
+
         return itemlist_data, "merged-data"
 
     # Create a mapping from filename to its metadata
@@ -350,6 +281,9 @@ def updateMergedDatatable(mergeddata):
         for row in mergeddata:
             if row["match_result"] == "Match":
                 row["match_result_style"] = {"backgroundColor": "orange"}
+            elif row["match_result"] == "NoMeta":
+                row["match_result_style"] = {"backgroundColor": "orange"}
+                # row["match_result_style"] = {"backgroundColor": "yellow"}
             else:
                 row["match_result_style"] = {}
 
@@ -361,20 +295,22 @@ def updateMergedDatatable(mergeddata):
         merged_grid = [
             dag.AgGrid(
                 rowData=mergeddata,
-                columnSize="autoSize",
+                # columnSize="sizeToFit",
+                id="merged-datagrid",
                 columnDefs=s.MERGED_COL_DEFS,
                 defaultColDef=dict(
                     resizable=True,
                     editable=True,
-                    minWidth=30,
+                    # minWidth=30,
                     sortable=True,
                     # maxWidth=200,
-                    columnSize="autoSize",
+                    minWidth=30,
+                    # columnSize="autoSize",
                     cellStyle={
                         "styleConditions": [
                             {
-                                "condition": "params.value == 72000",
-                                "style": {"color": "orange"},
+                                "condition": "params.value == 'NoMeta'",
+                                "style": {"backgroundColor": "orange"},
                             },
                             {
                                 "condition": "params.value == 'Match'",
@@ -455,6 +391,3 @@ if __name__ == "__main__":
     with open(s.log_filename, "w"):
         pass
     app.run(debug=True, host="0.0.0.0")
-
-
-# I am trying to set up conditional formatting so that if the column name appears in the row error_cols it will highlight that cell in orange

@@ -39,6 +39,8 @@ SIDEBAR_STYLE = {
     "transition": "all 0.5s",
     "padding": "0.5rem 1rem",
     "background-color": "#f8f9fa",
+    # "border": "0px",
+    # "box-shadow": "none",
 }
 
 SIDEBAR_COLLAPSED = {
@@ -56,11 +58,12 @@ SIDEBAR_COLLAPSED = {
 }
 # Define the new style for the toggle button and the vertical text
 TOGGLE_BUTTON_STYLE = {
-    # "position": "absolute",
-    "top": "15px",
-    "left": "-20px",
-    "width": 50,
-    "z-index": 2,  # This ensures the button is above other elements
+    # # "position": "relative",
+    # "top": "155px",
+    # "left": "35px",
+    # "width": 50,
+    # "padding-right": -20,
+    # "z-index": 2,  # This ensures the button is above other elements
 }
 
 VERTICAL_TEXT_STYLE = {
@@ -142,7 +145,7 @@ tree_layout = html.Div(
         dbc.Row(
             [
                 dbc.Col(
-                    dcc.Markdown("## Folder Tree"), width=10
+                    dcc.Markdown("## Folder Tree"), width=11
                 ),  # This takes up 11 out of 12 parts of the width
                 dbc.Col(
                     dbc.Button(
@@ -152,8 +155,8 @@ tree_layout = html.Div(
                         style=TOGGLE_BUTTON_STYLE,
                         n_clicks=0,
                     ),
-                    width=2,  # This takes up 1 out of 12 parts of the width
-                    style={"padding": 0, "margin-left": "-20px", "margin-top": "10px"},
+                    width=1,  # This takes up 1 out of 12 parts of the width
+                    style={"padding": 0, "margin-left": "-10px", "margin-top": "10px"},
                 ),
             ]
         ),
@@ -175,8 +178,9 @@ tree_layout = html.Div(
     ],
     style={
         "border": "4px solid #ddd",  # Optional: adds a border around the div
-        "margin": "-10px",  # Adjust the margin here
-        "padding": "-10px",  # Adjust the padding here
+        "margin": "1px",  # Adjust the margin here
+        "padding": "1px",
+        "box-shadow": "none",  # Adjust the padding here
     },
 )
 
@@ -294,7 +298,7 @@ def update_last_clicked_folder(n_clicks, folder_ids):
         print(
             f"Failed to parse JSON from: {callback_context.triggered[0]['prop_id'].split('.')[0]}"
         )
-        return ({},)  # or some other appropriate default value or behavior
+        return ("",)  # or some other appropriate default value or behavior
 
     return (triggered_id,)
 
