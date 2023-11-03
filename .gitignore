@@ -133,3 +133,5 @@ db/
 logs/
 assetstore/
 ..gitignore.swp
+docs/.vscode/settings.json
+.vscode/settings.json

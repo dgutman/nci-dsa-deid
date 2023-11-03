@@ -24,6 +24,7 @@ DSAKEY = os.getenv("DSAKEY")
 if DSAKEY:
     gc.authenticate(apiKey=DSAKEY)
     DSA_LOGIN_SUCCESS = True
+    print("App has logged into the DSA")
 
 
 # Set up logging

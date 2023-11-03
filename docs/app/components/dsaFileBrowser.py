@@ -12,27 +12,28 @@ import dash_ag_grid as dag
 import dash
 
 # # Replace with the base URL of  the DSA
-gc = girder_client.GirderClient(apiUrl=s.DSA_BASE_URL)
-collections = gc.get("collection")
+# gc = girder_client.GirderClient(apiUrl=s.DSA_BASE_URL)
+from settings import gc
 
+collections = gc.get("collection")
 
 # Create a global dictionary for the cache
 folder_cache = {}
-
 
 ## Preseed this with collection names
 
 for c in collections:
     folder_cache[c["_id"]] = c["name"]
+    # print(c["name"])
 
 # ## To simplify the logic, I am going to pre-Cache the collection Name as well as the
 # ## First set of subfolders, as they require a different girder call to the getFolder
 # ## call and it becomes confusing to follow..
 
-# the style arguments for the sidebar. We use position:fixed and a fixed width
+
 SIDEBAR_STYLE = {
-    "position": "fixed",
-    "top": 162.5,
+    "position": "relative",
+    "top": 0,
     "left": 0,
     "bottom": 0,
     "width": "30rem",
@@ -42,9 +43,8 @@ SIDEBAR_STYLE = {
     "transition": "all 0.5s",
     "padding": "0.5rem 1rem",
     "background-color": "#f8f9fa",
-    # "border": "0px",
-    # "box-shadow": "none",
 }
+
 
 SIDEBAR_COLLAPSED = {
     # "position": "fixed",
@@ -66,7 +66,7 @@ TOGGLE_BUTTON_STYLE = {
     # "left": "35px",
     # "width": 50,
     # "padding-right": -20,
-    # "z-index": 2,  # This ensures the button is above other elements
+    "z-index": 2,  # This ensures the button is above other elements
 }
 
 VERTICAL_TEXT_STYLE = {
@@ -80,13 +80,12 @@ VERTICAL_TEXT_STYLE = {
 }
 ## If level=1 it means it's a root folder for a collection
 
-# # the styles for the main content position it to the right of the sidebar and
-# # add some padding.
+
 CONTENT_STYLE = {
     "transition": "margin-left .5s",
-    "margin-left": "32rem",
+    "margin-left": "-1rem",  # Adjusted from 32rem
     "margin-right": "2rem",
-    "padding": "2rem 1rem",
+    "padding": "0rem 0rem",
     "background-color": "#f8f9fa",
 }
 
@@ -113,7 +112,6 @@ def get_folder_name(folder_id, level=2):
 
 
 def folder_div(collection_folder):
-    print(collection_folder)
     if collection_folder["_modelType"] == "collection":
         level = 1
     else:
@@ -215,8 +213,8 @@ dsaFileTree_layout = dbc.Row(
     [
         dcc.Store(id="side_click"),
         dcc.Location(id="url"),
-        sidebar,
-        content,
+        dbc.Col(sidebar, width=3, style={"padding": 0}, id="sidebar_col"),
+        dbc.Col(content, width=9, id="content_col"),
     ],
 )
 
@@ -242,13 +240,12 @@ def update_folder_styles_and_icons(n_clicks, folder_id, last_clicked_folder_data
     icon = DashIconify(icon="material-symbols:folder", width=20)
     style = {"color": "blue"}
     button_label = folder_cache[folder_id["id"]]  # None  # Initialize the button label
-    print(n_clicks, folder_id)
+    # print(n_clicks, folder_id)
     if n_clicks % 2 == 1:  # folder was expanded
         level = folder_id["level"]
         # Fetch item count for the clicked folder
 
         itemList = []
-        # try:
         folderName = folder_cache[folder_id["id"]]
         ## This will fail for root folders as they can't contain items..
         try:
@@ -275,14 +272,37 @@ def update_folder_styles_and_icons(n_clicks, folder_id, last_clicked_folder_data
         else:
             icon = DashIconify(icon="material-symbols:folder", width=20)
 
+    #  style={
+    #                     "text-align": "left",
+    #                     "margin-left": f"{20*level-25}px",
+    #                     "padding": "2px 8px",
+    #                     "font-size": "1rem",
+    #                     "height": "20px",
+    #                 },
+
     # Additional logic to handle style change:
     last_clicked_id = last_clicked_folder_data if last_clicked_folder_data else None
     if last_clicked_id == folder_id["id"]:
-        style = {"color": "blue"}
+        style = {
+            "color": "green",
+            "font-size": "1rem",
+            "height": "20px",
+            "padding": "2px 8px",
+        }
     elif last_clicked_id:
-        style = {"color": "blue"}
+        style = {
+            "color": "blue",
+            "font-size": "1rem",
+            "height": "20px",
+            "padding": "2px 8px",
+        }
     else:
-        style = {"color": "green"}
+        style = {
+            "color": "blue",
+            "font-size": "1rem",
+            "height": "20px",
+            "padding": "2px 8px",
+        }
 
     return children, icon, style, button_label
 
@@ -294,6 +314,7 @@ def dumpItemList(itemList):
         itemTable = dag.AgGrid(
             id="itemGrid",
             columnSize="autoSize",
+            dashGridOptions={"pagination": True, "paginationAutoPageSize": True},
             columnDefs=[
                 {"field": "name", "headerName": "Filename"},
                 {
@@ -311,11 +332,9 @@ def dumpItemList(itemList):
                 "sortable": True,
                 "filter": True,
                 "flex": 1,
-                # "columnSize": "autoSize",
             },
         )
         return itemTable
-        # return html.Div(json.dumps(itemList, indent=2))
 
 
 @callback(
@@ -346,9 +365,8 @@ def update_last_clicked_folder(n_clicks, folder_ids):
     prevent_initial_call=True,
 )
 def update_recently_clicked_folder(folder_id, n_clicks):
-    print(folder_id, n_clicks)
+    # print(folder_id, n_clicks)
     trigger = callback_context.triggered[0]
-    # print(trigger["prop_id"])
 
     prop_id_string = trigger["prop_id"].rsplit(".", 1)[0]
     try:
@@ -357,8 +375,6 @@ def update_recently_clicked_folder(folder_id, n_clicks):
         print(f"Failed to parse JSON from: {prop_id_string}")
         return {}  # or some other appropriate default value or behavior
 
-    # prop_id_dict = json.loads(trigger["prop_id"].split(".")[0])
-
     # Now you can extract the desired values from the dictionary
     level = prop_id_dict["level"]
     folder_type = prop_id_dict["type"]
@@ -366,49 +382,23 @@ def update_recently_clicked_folder(folder_id, n_clicks):
     # print(level, folder_type, folder_id)
 
     if level == 2:
-        itemListInfo = list(gc.listItem(folder_id))
+        itemListInfoData = list(gc.listItem(folder_id))
         # print(itemListInfo)
-        return itemListInfo
+        return itemListInfoData
 
     return {}
 
 
-CONTENT_STYLE1 = {
-    "transition": "margin-left .5s",
-    "margin-left": "2rem",
-    "margin-right": "2rem",
-    "padding": "2rem 1rem",
-    "background-color": "#f8f9fa",
-}
-
-
 @callback(
-    [
-        Output("sidebar", "style"),
-        Output("itemListinfo", "style"),
-        Output("side_click", "data"),
-    ],
+    Output("sidebar", "style"),
     [Input("btn_sidebar", "n_clicks")],
-    [
-        State("side_click", "data"),
-    ],
+    [State("sidebar", "style")],
+    prevent_initial_call=True,
 )
-def toggle_sidebar(n, nclick):
-    if n:
-        if nclick == "SHOW":
-            sidebar_style = SIDEBAR_COLLAPSED
-            content_style = CONTENT_STYLE1
-            cur_nclick = "HIDDEN"
-        else:
-            sidebar_style = SIDEBAR_STYLE
-            content_style = CONTENT_STYLE
-            cur_nclick = "SHOW"
-    else:
-        sidebar_style = SIDEBAR_STYLE
-        content_style = CONTENT_STYLE
-        cur_nclick = "SHOW"
-
-    return sidebar_style, content_style, cur_nclick
+def toggle_sidebar(n, style):
+    if style and "left" in style and style["left"] == "0px":
+        return {**style, "left": "-25rem"}
+    return {**style, "left": "0px"}
 
 
 slideListTab_content = dbc.Row(
@@ -427,9 +417,32 @@ slideListTab_content = dbc.Row(
                     className="me-1",
                     style={"maxWidth": 300},
                 ),
+                html.Div(id="current_selected_folder"),
             ]
         ),
         dsaFileTree_layout,
     ],
     className="mt-4",
 )
+
+# # Add a callback to handle the collapsing and expanding of the sidebar
+# @callback(
+#     [
+#         Output("sidebar_col", "style"),
+#         Output("content_col", "style"),
+#         Output("vertical_text", "style"),
+#     ],
+#     [Input("btn_sidebar", "n_clicks")],
+#     prevent_initial_call=True,
+# )
+# def toggle_sidebar(n_clicks):
+#     if n_clicks % 2 == 0:  # Sidebar is expanded
+#         sidebar_style = {"padding": 0}
+#         content_style = {"width": 9}
+#         vertical_text_style = {"display": "none"}  # hide the vertical text
+#     else:  # Sidebar is collapsed
+#         sidebar_style = {"padding": 0, "width": 0}  # hide the sidebar
+#         content_style = {"width": 10}  # expand the content
+#         vertical_text_style = {"display": "block"}  # show the vertical text
+
+#     return sidebar_style, content_style, vertical_text_style
