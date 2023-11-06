@@ -2,7 +2,9 @@
 import dash_bootstrap_components as dbc
 import dash_ag_grid as dag
 from dash import Dash, State, callback, callback_context, dcc, ctx
-from jsonschema import Draft7Validator
+
+
+import datetime
 
 from dash_extensions.enrich import Output, DashProxy, Input, MultiplexerTransform, html
 from components.merged_dataview_panel import merged_data_panel, checkForExistingFile
@@ -18,7 +20,6 @@ import settings as s
 import dash_mantine_components as dmc
 from components.instructionPanel import instructions_tab
 from components.metaDataUpload_panel import metadata_upload_layout
-import json
 
 
 external_stylesheets = [
@@ -85,10 +86,21 @@ def process_row(row, COLS_FOR_COPY):
     for idx, col in enumerate(COLS_FOR_COPY):
         row[col] = str(idx)
     row["valid"] = True
-    row["OutputFileName"] = os.path.splitext(row["name"])[0] + ".deid.svs"
 
-    deidFileStatus = checkForExistingFile(row["OutputFileName"])
-    row["curDsaPath"] = deidFileStatus
+    ## Change the default to a datetime instead of just 0
+    today = datetime.date.today()
+
+    if row["SampleID"] == "0":
+        row["SampleID"] = "Batch-%s" % today.strftime("%Y%m%d")
+
+    if not row["name"].endswith(".svs"):
+        row["deidStatus"] = "FileType Not Supported"
+        row["OutputFileName"] = " "
+    else:
+        row["OutputFileName"] = os.path.splitext(row["name"])[0] + ".deid.svs"
+
+        deidFileStatus = checkForExistingFile(row["OutputFileName"])
+        row["curDsaPath"] = deidFileStatus
 
     return row
 
@@ -102,14 +114,21 @@ def process_row(row, COLS_FOR_COPY):
     Input("no-meta-deid-button", "n_clicks"),
     State("metadata_store", "data"),
     State("itemList_store", "data"),
+    State("deid-flag-inputs", "value"),
     Input("validate-deid-status-button", "n_clicks"),
     prevent_initial_call=True,
 )
 def check_name_matches(
-    checkmatch_clicks, nometa_button, metadata, itemlist_data, updateItemStatus
+    checkmatch_clicks,
+    nometa_button,
+    metadata,
+    itemlist_data,
+    deidFlags,
+    updateItemStatus,
 ):
     ## Should be based on the context... need to debug
     ## Really need to get the context here in the future??
+    print(deidFlags)
 
     if nometa_button or updateItemStatus:
         print("Updating item status..")

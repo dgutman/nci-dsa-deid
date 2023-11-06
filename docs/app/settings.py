@@ -6,7 +6,10 @@ SCHEMA_FILE = "importManifestSchema.json"
 TEST_MODE = False
 TEST_FILENAME = "exampleData_112322.csv"
 DSA_BASE_URL = "https://wsi-deid.pathology.emory.edu/api/v1"
-TEST_FOLDERID = "6477c00e309a9ffde6689635"
+# TEST_FOLDERID = "6477c00e309a9ffde6689635"
+
+TEST_FOLDERID = "64da4e64309a9ffde668b9e6"  ## VISUM FOLDER
+
 DSA_UNFILED_FOLDER = (
     "/WSI DeID/Unfiled"  ## This is for internal bookkeeping, Will be hidden
 )
@@ -69,12 +72,9 @@ MERGED_COL_DEFS = [
     },
     {"field": "deidStatus", "width": 150},
     {"field": "name", "header": "fileName", "tooltipField": "name"},
-    {
-        "field": "OutputFileName",
-        "tooltipField": "OutputFileName",
-    },
-    {"field": "curDsaPath"},
-    {"field": "size", "header": "File Size"},
+    {"field": "OutputFileName", "tooltipField": "OutputFileName", "width": 300},
+    {"field": "curDsaPath", "tooltipField": "curDsaPath", "width": 300},
+    {"field": "size", "header": "File Size", "width": 160},
     {"field": "SampleID"},
     {"field": "REPOSITORY"},
     {"field": "STUDY"},
