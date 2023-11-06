@@ -105,7 +105,7 @@ def process_row(row, COLS_FOR_COPY):
     return row
 
 
-@app.callback(
+@callback(
     [
         Output("mergedItem_store", "data"),
         Output("main-tabs", "active_tab"),  # Add this line
