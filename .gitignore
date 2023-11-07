@@ -135,3 +135,5 @@ assetstore/
 ..gitignore.swp
 docs/.vscode/settings.json
 .vscode/settings.json
+devops/nci-dsa-deid/import
+devops/nci-dsa-deid/export

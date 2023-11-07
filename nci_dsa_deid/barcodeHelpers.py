@@ -6,9 +6,22 @@ import pylibdmtx
 
 from pylibdmtx.pylibdmtx import encode
 import math, json
-import PIL
+import PIL, os
 
 keysForBarcode = ["ASSAY", "BLOCK", "CASE", "INDEX", "PROJECT", "REPOSITORY", "STUDY"]
+
+
+
+logoImageFile="/opt/nci-dsa-deid/nci_dsa_deid/NCI-logo-300x165.jpg"
+
+if os.path.isfile(logoImageFile):
+    pass
+else:
+    logoImageFile = "./NCI-logo-300x165.jpg"
+    ## During local testing the /opt path does not exist, so using local path
+
+def split_into_chunks(s, max_length=40):
+    return [s[i : i + max_length] for i in range(0, len(s), max_length)]
 
 
 def add_barcode_to_image(
@@ -20,7 +33,7 @@ def add_barcode_to_image(
     textColor="#000000",
     square=True,
     item=None,
-    logoImageFile="NCI-logo-300x165.jpg",
+    logoImageFile=logoImageFile,
 ):
     """
     Add both a title and a barcode to an image.  If the image doesn't exist, a new image is made
@@ -56,10 +69,22 @@ def add_barcode_to_image(
 
     ### Try to figure out the proper font size based on the size in pixels of the rendered text
     ## using fontsize of 0.15 as a starting point
-    fontSize, textW, textH, imageDrawFont = computeFontSize(targetW, 0.15, title)
-    ## Setting fontsize of 0.15 as default
+    # Split the title into multiple lines if necessary
+    title_lines = split_into_chunks(title)
 
-    titleH = int(math.ceil(textH * 1.25))
+  # print(title_lines, "was passed..")
+    # Compute the font size and text width for each line
+    max_textW = 0
+    total_textH = 0
+    for line in title_lines:
+        fontSize, textW, textH, imageDrawFont = computeFontSize(
+            targetW, 0.15, line, fontFile="./DejaVuSansMono.ttf"
+        )
+        max_textW = max(max_textW, textW)
+        total_textH += textH
+
+    # Adjust the title height based on the total height of all title lines
+    titleH = int(math.ceil(total_textH * 1.35))
 
     ## I always want these to be a square..
 
@@ -74,29 +99,99 @@ def add_barcode_to_image(
 
     imageDraw = ImageDraw.Draw(newImage)
     imageDraw.rectangle((0, 0, targetW, titleH), fill=background, outline=None, width=0)
-    imageDraw.text(
-        xy=(int((targetW - textW) / 2), int((titleH - textH) / 2)),
-        text=title,
-        fill=textColor,
-        font=imageDrawFont,
-    )
+
+    # Draw each title line on the image
+    y_offset = int((titleH - total_textH) / 2)
+    for line in title_lines:
+        imageDraw.text(
+            xy=(int((targetW - max_textW) / 2), y_offset),
+            text=line,
+            fill=textColor,
+            font=imageDrawFont,
+        )
+        y_offset += textH
+
+    ## TO DO make this a global parameter
+
+    logoImg = Image.open(logoImageFile)
+
+    # Dealing with barcode generation and placement...
+    available_height = (
+        targetW - titleH - logoImg.size[1]
+    )  # space between title and logo
 
     barcodeData = encode_barcode_string(item, keysForBarcode)
     encoded = encode(barcodeData.encode("utf8"))
     img = Image.frombytes("RGB", (encoded.width, encoded.height), encoded.pixels)
-    ## Since I know the width, I can figure out the encoded width, and then try and center the barcode
-    barcodeXoffset = int((targetW - encoded.width) / 2)
-    newImage.paste(img, (barcodeXoffset, int(minWidth / 6)))
 
-    ## TO DO make this a global parameter
-    # logoImageFile = "/opt/nci-dsa-deid/nci_dsa_deid/NCI-logo-300x165.jpg"
-    logoImg = Image.open(logoImageFile)
+    barcode_aspect_ratio = encoded.width / encoded.height
+    max_barcode_width = int(available_height * barcode_aspect_ratio)
+
+    # If the barcode width after resizing exceeds the target width, adjust the available height
+    if max_barcode_width > targetW:
+        available_height = int(targetW / barcode_aspect_ratio)
+        max_barcode_width = targetW
+
+    barcode_resized = img.resize((max_barcode_width, available_height))
+
+    ## Since I know the width, I can figure out the encoded width, and then try and center the barcode
+    # Place the resized barcode in the center
+    barcodeXoffset = (targetW - barcode_resized.width) // 2
+    barcodeYoffset = titleH + (available_height - barcode_resized.height) // 2
+    newImage.paste(barcode_resized, (barcodeXoffset, barcodeYoffset))
+    # barcodeXoffset = int((targetW - encoded.width) / 2)
+    # newImage.paste(img, (barcodeXoffset, int(minWidth / 6)))
 
     logoOffsetX = int((targetW - logoImg.size[0]) / 2)
     logoOffsetY = int(targetW - logoImg.size[1])
     newImage.paste(logoImg, (logoOffsetX, logoOffsetY))
 
     return newImage
+
+
+    # ### Try to figure out the proper font size based on the size in pixels of the rendered text
+    # ## using fontsize of 0.15 as a starting point
+    # fontSize, textW, textH, imageDrawFont = computeFontSize(targetW, 0.15, title)
+    # ## Setting fontsize of 0.15 as default
+
+    # titleH = int(math.ceil(textH * 1.25))
+
+    # ## I always want these to be a square..
+
+    # if square and (w != h or (not previouslyAdded or w != targetW or h < titleH)):
+    #     if targetW < h + titleH:
+    #         targetW = h + titleH
+    #     else:
+    #         titleH = targetW - h
+
+    # newImage = PIL.Image.new(mode=mode, size=(targetW, h + titleH), color=background)
+    # # newImage.paste(lblImage, (int((targetW - w) / 2), titleH))
+
+    # imageDraw = ImageDraw.Draw(newImage)
+    # imageDraw.rectangle((0, 0, targetW, titleH), fill=background, outline=None, width=0)
+    # imageDraw.text(
+    #     xy=(int((targetW - textW) / 2), int((titleH - textH) / 2)),
+    #     text=title,
+    #     fill=textColor,
+    #     font=imageDrawFont,
+    # )
+
+    # barcodeData = encode_barcode_string(item, keysForBarcode)
+    # encoded = encode(barcodeData.encode("utf8"))
+    # img = Image.frombytes("RGB", (encoded.width, encoded.height), encoded.pixels)
+    # ## Since I know the width, I can figure out the encoded width, and then try and center the barcode
+    # barcodeXoffset = int((targetW - encoded.width) / 2)
+    # newImage.paste(img, (barcodeXoffset, int(minWidth / 6)))
+
+    # ## TO DO make this a global parameter
+    # # logoImageFile = "/opt/nci-dsa-deid/nci_dsa_deid/NCI-logo-300x165.jpg"
+    # logoImg = Image.open(logoImageFile)
+
+    # logoOffsetX = int((targetW - logoImg.size[0]) / 2)
+    # logoOffsetY = int(targetW - logoImg.size[1])
+    # newImage.paste(logoImg, (logoOffsetX, logoOffsetY))
+
+    # return newImage
 
 
 def encode_barcode_string(item, keys_to_encode):
