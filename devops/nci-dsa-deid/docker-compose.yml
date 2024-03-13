@@ -2,8 +2,10 @@
 version: '3'
 services:
   girder:
-    image: "dagutman/nci-dsa-deid:latest"
-    build: ./. # Only have this on during dev
+    #image: "dagutman/nci-dsa-deid:latest"
+    build:
+      context: .
+    # Only have this on during dev
     # Instead of privileged mode, fuse can use:
     privileged: true
     # Set DSA_USER to a user id that is part of the docker group (e.g.,
@@ -34,7 +36,7 @@ services:
       - ./girder.cfg:/etc/girder.cfg
       # Location of provision.py
       - ./provision.py:/opt/digital_slide_archive/devops/dsa/provision.py
-      # - ./provision.yaml:/opt/digital_slide_archive/devops/dsa/provision.yaml
+      - ./provision.yaml:/opt/digital_slide_archive/devops/dsa/provision.yaml
       - ./start_girder.sh:/opt/digital_slide_archive/devops/dsa/start_girder.sh
       # Location to store logs
       - ./logs:/logs

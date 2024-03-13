@@ -16,6 +16,7 @@ pip:
   - girder-oauth
   - girder-ldap
   - wsi-deid@git+https://github.com/digitalslidearchive/dsa-wsi-deid
+  - /opt/nci-dsa-deid
 ## Note the internal package name for this plugin is wsi-deid
 
 # rebuild-client may be False, True (for dev mode), or "production"

@@ -39,7 +39,7 @@ python /opt/digital_slide_archive/devops/dsa/provision.py -v --pre
 su $(id -nu ${DSA_USER%%:*}) -c "
   PATH=\"/opt/digital_slide_archive/devops/dsa/utils:/opt/venv/bin:/.pyenv/bin:/.pyenv/shims:$PATH\";
   echo ==== Provisioning === &&
-  python /opt/digital_slide_archive/devops/dsa/provision.py -v --main &&
+  python /opt/digital_slide_archive/devops/dsa/provision.py -v  --main &&
   echo ==== Creating FUSE mount === &&
   (girder mount /fuse || true) &&
   echo ==== Starting Girder === &&
