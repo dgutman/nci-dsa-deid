@@ -1,12 +1,23 @@
 # Library imports
 import dash_bootstrap_components as dbc
 import dash_ag_grid as dag
-from dash import Dash, State, callback, callback_context, dcc, ctx
+from dash import (
+    Dash,
+    State,
+    callback,
+    callback_context,
+    dcc,
+    ctx,
+    Input,
+    Output,
+    State,
+    html,
+)
 
 
 import datetime
 
-from dash_extensions.enrich import Output, DashProxy, Input, MultiplexerTransform, html
+# from dash_extensions.enrich import Output, DashProxy, Input, MultiplexerTransform, html
 from components.merged_dataview_panel import merged_data_panel, checkForExistingFile
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -28,11 +39,11 @@ external_stylesheets = [
 ]
 
 
-app = DashProxy(
+app = Dash(
     __name__,
     external_stylesheets=external_stylesheets,
     suppress_callback_exceptions=True,
-    transforms=[MultiplexerTransform()],
+    # transforms=[MultiplexerTransform()],
 )
 
 
@@ -101,6 +112,18 @@ def process_row(row, COLS_FOR_COPY):
 
         deidFileStatus = checkForExistingFile(row["OutputFileName"])
         row["curDsaPath"] = deidFileStatus
+        ## #Process / update DEID status here as well
+        curDsaPath = row.get("curDsaPath", None)
+        print(curDsaPath)
+        if curDsaPath:
+            if curDsaPath.startswith("/collection/WSI DeID/Approved"):
+                row["deidStatus"] = "In Approved Status"
+
+            elif curDsaPath.startswith("/collection/WSI DeID/Redacted"):
+                row["deidStatus"] = "In Redacted Folder"
+
+            elif curDsaPath.startswith("/collection/WSI DeID/AvailableToProcess"):
+                row["deidStatus"] = "AvailableToProcess Folder"
 
     return row
 
@@ -174,14 +197,15 @@ def check_name_matches(
 @callback(
     Output("output-data-upload", "children"),
     Output("metadata_store", "data", allow_duplicate=True),
-    Input("load-test-data-button", "n_clicks"),
+    # Input("load-test-data-button", "n_clicks"),
     Input("upload-data", "contents"),
     State("upload-data", "filename"),
     State("upload-data", "last_modified"),
     prevent_initial_call=True,
 )
-def update_output(testdata_n_clicks, file_content, file_name, file_upload_date):
-    if testdata_n_clicks or s.TEST_MODE:
+def update_output(file_content, file_name, file_upload_date):
+    # if testdata_n_clicks or s.TEST_MODE:
+    if s.TEST_MODE:
         # print("test data loader pushed")
         return parse_testfile(s.TEST_FILENAME)
 

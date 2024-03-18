@@ -74,7 +74,7 @@ MERGED_COL_DEFS = [
     {"field": "deidStatus", "width": 150},
     {"field": "name", "header": "fileName", "tooltipField": "name"},
     {"field": "OutputFileName", "tooltipField": "OutputFileName", "width": 300},
-    {"field": "curDsaPath", "tooltipField": "curDsaPath", "width": 300},
+    {"field": "curDsaPath", "tooltipField": "curDsaPath", "width": 450},
     {"field": "size", "header": "File Size", "width": 160},
     {"field": "SampleID"},
     {"field": "REPOSITORY"},

@@ -294,9 +294,10 @@ def update_last_clicked_folder(n_clicks, folder_ids):
         triggered_id = json.loads(
             callback_context.triggered[0]["prop_id"].split(".")[0]
         )
+        print(triggered_id, "was triggered..")
     except json.JSONDecodeError:
         print(
-            f"Failed to parse JSON from: {callback_context.triggered[0]['prop_id'].split('.')[0]}"
+            f"In update lastclicked, Failed to parse JSON from: {callback_context.triggered[0]['prop_id'].split('.')[0]}"
         )
         return ("",)  # or some other appropriate default value or behavior
 
@@ -313,12 +314,14 @@ def update_recently_clicked_folder(folder_id, n_clicks):
     # print(folder_id, n_clicks)
     trigger = callback_context.triggered[0]
     # print(trigger["prop_id"])
-
+    print(trigger)
     prop_id_string = trigger["prop_id"].rsplit(".", 1)[0]
     try:
         prop_id_dict = json.loads(prop_id_string)
     except json.JSONDecodeError:
-        print(f"Failed to parse JSON from: {prop_id_string}")
+        print(
+            f"In updateRecentlyClicked Folder, Failed to parse JSON from: {prop_id_string}"
+        )
         return {}  # or some other appropriate default value or behavior
 
     # prop_id_dict = json.loads(trigger["prop_id"].split(".")[0])

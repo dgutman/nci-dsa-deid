@@ -6,6 +6,10 @@ import PIL, os
 
 keysForBarcode = ["ASSAY", "BLOCK", "CASE", "INDEX", "PROJECT", "REPOSITORY", "STUDY"]
 
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
 logoImageFile = "/opt/nci-dsa-deid/nci_dsa_deid/NCI-logo-300x165.jpg"
 
 if os.path.isfile(logoImageFile):
@@ -79,7 +83,7 @@ def add_barcode_to_image(
         total_textH += textH
 
     # Adjust the title height based on the total height of all title lines
-    titleH = int(math.ceil(total_textH * 1.35))
+    titleH = int(math.ceil(total_textH * 1.40))
 
     ## I always want these to be a square..
 
@@ -132,8 +136,11 @@ def add_barcode_to_image(
     ## Since I know the width, I can figure out the encoded width, and then try and center the barcode
     # Place the resized barcode in the center
     barcodeXoffset = (targetW - barcode_resized.width) // 2
-    barcodeYoffset = titleH + (available_height - barcode_resized.height) // 2
+    barcodeYoffset = (
+        titleH + (available_height - barcode_resized.height) // 2
+    )  ## Moving it down a bit more
     newImage.paste(barcode_resized, (barcodeXoffset, barcodeYoffset))
+    print(barcodeYoffset, "is title height offset")
     # barcodeXoffset = int((targetW - encoded.width) / 2)
     # newImage.paste(img, (barcodeXoffset, int(minWidth / 6)))
 
@@ -245,7 +252,7 @@ def computeFontSize(
             textW = 0.2  # set this to a reasonable default
 
         # print(fontSize, "is font size..")
-        if iter != 1 and (textW > targetW * 0.95 or textW < targetW * 0.85):
+        if iter != 1 and (textW > targetW * 0.85 or textW < targetW * 0.85):
             fontSize = fontSize * targetW * 0.9 / textW
 
     return fontSize, textW, textH, imageDrawFont

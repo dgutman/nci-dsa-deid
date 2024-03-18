@@ -125,10 +125,11 @@ def add_barcode_to_image(
     ## Since I know the width, I can figure out the encoded width, and then try and center the barcode
     # Place the resized barcode in the center
     barcodeXoffset = (targetW - barcode_resized.width) // 2
-    barcodeYoffset = titleH + (available_height - barcode_resized.height) // 2
+    barcodeYoffset = titleH + (available_height - barcode_resized.height) // 2 + 20
     newImage.paste(barcode_resized, (barcodeXoffset, barcodeYoffset))
     # barcodeXoffset = int((targetW - encoded.width) / 2)
     # newImage.paste(img, (barcodeXoffset, int(minWidth / 6)))
+    print(barcodeYoffset, "is barcode offset")
 
     logoOffsetX = int((targetW - logoImg.size[0]) / 2)
     logoOffsetY = int(targetW - logoImg.size[1])

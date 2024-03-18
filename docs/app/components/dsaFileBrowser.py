@@ -1,8 +1,20 @@
 """This is a panel to browse a DSA instance starting at the collection level """
+
 import dash_bootstrap_components as dbc
 from dash import html
 import girder_client
-from dash import dcc, html, Input, Output, State, callback_context, MATCH, ALL, callback
+from dash import (
+    dcc,
+    html,
+    Input,
+    Output,
+    State,
+    callback_context,
+    MATCH,
+    ALL,
+    callback,
+    no_update,
+)
 import dash_bootstrap_components as dbc
 from dash_iconify import DashIconify
 import girder_client, json
@@ -207,7 +219,34 @@ sidebar = html.Div(
     style=SIDEBAR_STYLE,
 )
 
-content = html.Div(id="itemListinfo", style=CONTENT_STYLE)
+content = html.Div(
+    id="itemListinfo",
+    children=[
+        dag.AgGrid(
+            id="itemGrid",
+            columnSize="autoSize",
+            dashGridOptions={"pagination": True, "paginationAutoPageSize": True},
+            columnDefs=[
+                {"field": "name", "headerName": "Filename"},
+                {
+                    "field": "size",
+                    "headerName": "File Size",
+                    "width": 150,
+                    "columnSize": "autoSize",
+                },
+                {"field": "_id", "headerName": "DSA ID"},
+                {"field": "match_result", "headerName": "Matching Metadata"},
+            ],
+            defaultColDef={
+                "resizable": True,
+                "sortable": True,
+                "filter": True,
+                "flex": 1,
+            },
+        )
+    ],
+    style=CONTENT_STYLE,
+)
 
 dsaFileTree_layout = dbc.Row(
     [
@@ -307,34 +346,12 @@ def update_folder_styles_and_icons(n_clicks, folder_id, last_clicked_folder_data
     return children, icon, style, button_label
 
 
-@callback(Output("itemListinfo", "children"), [Input("itemList_store", "data")])
+@callback(Output("itemGrid", "rowData"), [Input("itemList_store", "data")])
 def dumpItemList(itemList):
     if itemList:
+        return itemList
         ## Make this into a datatable...
-        itemTable = dag.AgGrid(
-            id="itemGrid",
-            columnSize="autoSize",
-            dashGridOptions={"pagination": True, "paginationAutoPageSize": True},
-            columnDefs=[
-                {"field": "name", "headerName": "Filename"},
-                {
-                    "field": "size",
-                    "headerName": "File Size",
-                    "width": 150,
-                    "columnSize": "autoSize",
-                },
-                {"field": "_id", "headerName": "DSA ID"},
-                {"field": "match_result", "headerName": "Matching Metadata"},
-            ],
-            rowData=itemList,
-            defaultColDef={
-                "resizable": True,
-                "sortable": True,
-                "filter": True,
-                "flex": 1,
-            },
-        )
-        return itemTable
+    return []
 
 
 @callback(
@@ -345,35 +362,45 @@ def dumpItemList(itemList):
 )
 def update_last_clicked_folder(n_clicks, folder_ids):
     # Extract the folder ID from the callback context to find which folder was clicked
+    ctx = callback_context
+    print("Context was", ctx.triggered_id)
+
     try:
         triggered_id = json.loads(
             callback_context.triggered[0]["prop_id"].split(".")[0]
         )
+        return (triggered_id,)
     except json.JSONDecodeError:
+
         print(
-            f"Failed to parse JSON from: {callback_context.triggered[0]['prop_id'].split('.')[0]}"
+            f"In dfb update_last_clicked Failed to parse JSON from: {callback_context.triggered[0]['prop_id'].split('.')[0]}"
         )
-        return ("",)  # or some other appropriate default value or behavior
+        return (no_update,)  # or some other appropriate default value or behavior
+    return no_update
 
-    return (triggered_id,)
 
-
+## LOGIC BUG HERE IF FOLDER HAS A SUBFOLDER HAS A SUBFOLDER..
 @callback(
     Output("itemList_store", "data"),
     [Input({"type": "folder", "id": ALL, "level": ALL}, "n_clicks")],
     [State({"type": "folder", "id": ALL, "level": ALL}, "id")],
     prevent_initial_call=True,
 )
-def update_recently_clicked_folder(folder_id, n_clicks):
-    # print(folder_id, n_clicks)
-    trigger = callback_context.triggered[0]
+def update_recently_clicked_folder(n_clicks, folder_id):
+    print(folder_id, "triggered this callback this time")
+    print(n_clicks, "are the n_clicks data")
 
+    trigger = callback_context.triggered[0]
+    print(folder_id, n_clicks, trigger)
+    print(trigger, "is the triger...")
     prop_id_string = trigger["prop_id"].rsplit(".", 1)[0]
     try:
         prop_id_dict = json.loads(prop_id_string)
     except json.JSONDecodeError:
-        print(f"Failed to parse JSON from: {prop_id_string}")
-        return {}  # or some other appropriate default value or behavior
+        print(
+            f"update_recently_flicked_folder Failed.. DEBUG! Failed to parse JSON from: {prop_id_string}"
+        )
+        return no_update  # or some other appropriate default value or behavior
 
     # Now you can extract the desired values from the dictionary
     level = prop_id_dict["level"]
@@ -381,12 +408,13 @@ def update_recently_clicked_folder(folder_id, n_clicks):
     folder_id = prop_id_dict["id"]
     # print(level, folder_type, folder_id)
 
-    if level == 2:
+    ## This logic may not always work ... if the folder has subfolders
+    if level == 2 and trigger["value"] > 0:
         itemListInfoData = list(gc.listItem(folder_id))
         # print(itemListInfo)
         return itemListInfoData
 
-    return {}
+    return no_update  ### if there's an error?
 
 
 @callback(
