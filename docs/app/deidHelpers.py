@@ -10,8 +10,6 @@ import dash_ag_grid as dag
 import config
 import base64
 
-# import config
-
 # """This is a set of helper functions for debug purposes for the NCI DEID app
 # This includes some cleanup functions to remove images during testing that were uploaded
 # but had parsing issues, as well as functions to test/apply the schema"""
@@ -30,7 +28,7 @@ def validate_df(df):
 
         error_list = validator.iter_errors(row_dict)
         error_tree = jsonschema.exceptions.ErrorTree(validator.iter_errors(row_dict))
-        print(error_tree)
+        # print(error_tree)
         invalid_cols = []
         for e in error_list:
             ##pass
@@ -40,7 +38,6 @@ def validate_df(df):
             print(",".join(invalid_cols))
             df.at[i, "valid"] = False
             df.at[i, "error_cols"] = str(invalid_cols)
-    print(df.head())
     return df
 
 
@@ -71,55 +68,47 @@ def parse_testfile(filename):
         # Extracting the file extension to determine the filetype
         filetype = filename.split(".")[-1]
         df = read_file_from_system(filename, filetype)
+        # print("data frame was read", filename)
     except Exception as e:
         return html.Div(["There was an error processing this file."])
 
-    # Validate the DataFrame
-    df = validate_df(df)
-
-
-#     return html.Div(
-#         [
-#             html.H5(filename),
-#             html.H6(datetime.datetime.now()),
-#             dag.AgGrid(
-#                 rowData=df.to_dict("records"),
-#                 columnDefs=[{"headerName": i, "field": i} for i in df.columns],
-#                 id="metadataTable",
-#             ),
-#         ]
-#     )
+    return df
 
 
 def parse_contents(contents, filename, date):
-    # try
-    df = read_file_from_contents(contents, filename)
-    # except Exception as e:
-    #     return html.Div(["There was an error processing this file."])
+    ## If the file is not being uploaded manually, I need to inject a valid time stamp
+    if not date:
+        date = datetime.datetime.now().timestamp()
+
+    if contents == "TEST_FILE":
+        df = parse_testfile(filename)
+    elif contents is not None:
+        df = read_file_from_contents(contents, filename)
 
     # Validate the DataFrame
-    df = validate_df(df)
+    if df is not None:
 
-    return (
-        html.Div(
-            [
-                html.H5(filename),
-                html.H6(datetime.datetime.fromtimestamp(date)),
-                dag.AgGrid(
-                    rowData=df.to_dict("records"),
-                    columnDefs=[{"headerName": i, "field": i} for i in df.columns],
-                    id="dag_metadataTable",
-                ),
-                html.Hr(),  # horizontal line
-                html.Div("Raw Content"),
-                html.Pre(
-                    contents[0:200] + "...",
-                    style={"whiteSpace": "pre-wrap", "wordBreak": "break-all"},
-                ),
-            ],
-        ),
-        df.to_dict("records"),
-    )
+        df = validate_df(df)
+        return (
+            html.Div(
+                [
+                    html.H5(filename),
+                    html.H6(datetime.datetime.fromtimestamp(date)),
+                    dag.AgGrid(
+                        rowData=df.to_dict("records"),
+                        columnDefs=[{"headerName": i, "field": i} for i in df.columns],
+                        id="dag_metadataTable",
+                    ),
+                    html.Hr(),  # horizontal line
+                    html.Div("Raw Content"),
+                    html.Pre(
+                        contents[0:200] + "...",
+                        style={"whiteSpace": "pre-wrap", "wordBreak": "break-all"},
+                    ),
+                ],
+            ),
+            df.to_dict("records"),
+        )
 
 
 # def print_all_errors(error_tree):
@@ -148,6 +137,17 @@ def parse_contents(contents, filename, date):
 #             f'Deleted {results[0]} items and {results[1]} folders in folder {f["name"]}'
 #         )
 
+#     return html.Div(
+#         [
+#             html.H5(filename),
+#             html.H6(datetime.datetime.now()),
+#             dag.AgGrid(
+#                 rowData=df.to_dict("records"),
+#                 columnDefs=[{"headerName": i, "field": i} for i in df.columns],
+#                 id="metadataTable",
+#             ),
+#         ]
+#     )
 
 # def cleanupFolder(gc, folderId):
 #     """This will remove all items and folders from a given input folderID"""
@@ -163,108 +163,3 @@ def parse_contents(contents, filename, date):
 #         foldersDeleted += 1
 
 #     return itemsDeleted, foldersDeleted
-
-
-# def getSchemaValidator():
-#     """
-#     Return a jsonschema validator.
-
-#     :returns: a validator.
-#     """
-#     return jsonschema.Draft6Validator()
-
-
-# def get_standard_redactions_format_aperio(item, tileSource, tiffinfo, title):
-#     metadata = tileSource.getInternalMetadata() or {}
-#     title_redaction_list_entry = generate_system_redaction_list_entry(title)
-#     redactList = {
-#         "images": {},
-#         "metadata": {
-#             "internal;openslide;aperio.Filename": title_redaction_list_entry,
-#             "internal;openslide;aperio.Title": title_redaction_list_entry,
-#             "internal;openslide;tiff.Software": generate_system_redaction_list_entry(
-#                 get_deid_field(item, metadata.get("openslide", {}).get("tiff.Software"))
-#             ),
-#         },
-#     }
-#     if metadata["openslide"].get("aperio.Date"):
-#         redactList["metadata"]["internal;openslide;aperio.Date"] = (
-#             generate_system_redaction_list_entry(
-#                 "01/01/" + metadata["openslide"]["aperio.Date"][6:]
-#             )
-#         )
-#     return redactList
-
-
-# def get_deid_field(item, prefix=None):
-#     """
-#     Return a text field with the DeID Upload metadata formatted for storage.
-
-#     :param item: the item with data.
-#     :returns: the text field.
-#     """
-#     from . import __version__
-
-#     version = "DSA Redaction %s" % __version__
-#     if prefix and prefix.strip():
-#         if "DSA Redaction" in prefix:
-#             prefix.split("DSA Redaction")[0].strip()
-#         if prefix:
-#             prefix = prefix.strip() + "\n"
-#     else:
-#         prefix = ""
-#     return (
-#         prefix
-#         + version
-#         + "\n"
-#         + "|".join(
-#             ["%s = %s" % (k, v) for k, v in sorted(get_deid_field_dict(item).items())]
-#         )
-#     )
-
-
-# def get_deid_field_dict(item):
-#     """
-#     Return a dictionary with custom fields from the DeID Upload metadata.
-
-#     :param item: the item with data.
-#     :returns: a dictionary of key-vlaue pairs.
-#     """
-#     deid = item.get("meta", {}).get("deidUpload", {})
-#     if not isinstance(deid, dict):
-#         deid = {}
-#     result = {}
-#     limit = config.getConfig("upload_metadata_add_to_images")
-#     limit = set(limit if isinstance(limit, (list, set)) else [limit])
-#     for k, v in deid.items():
-#         if None not in limit and k not in limit:
-#             continue
-#         result["CustomField.%s" % k] = str(v).replace("|", " ")
-#     return result
-
-
-# def generate_system_redaction_list_entry(newValue):
-#     """Create an entry for the redaction list for a redaction performed by the system."""
-#     return {
-#         "value": newValue,
-#         "reason": "System Redacted",
-#     }
-
-
-# syntheticData = {
-#     "PatientID": ["Patient1", "Patient2", "Case12", "Patient3"],
-#     "SampleID": ["One", "Two", "Three"],
-#     "REPOSITORY": ["RepoA", "RepoB", "RepoC"],
-#     "STUDY": ["ABC", "DEF", "GH"],
-#     "PROJECT": ["Mando", "Lorian"],
-#     "CASE": ["CaseOne", "Case2", "Case3"],
-#     "BLOCK": [1, 2, 3, 4, 5],
-#     "INDEX": [1, 2, 3, 4, 5, 6],
-# }
-
-
-# def generate_random_data(data):
-#     random_data = {}
-#     for key in data.keys():
-#         random_data[key] = random.choice(data[key])
-#     return random_data

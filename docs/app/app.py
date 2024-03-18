@@ -23,7 +23,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 
 # Local modules
-from deidHelpers import parse_testfile, validate_df, parse_contents
+
 from components.dsaFileBrowser import slideListTab_content
 
 from components.dsa_login_panel import dsa_login_panel
@@ -43,7 +43,6 @@ app = Dash(
     __name__,
     external_stylesheets=external_stylesheets,
     suppress_callback_exceptions=True,
-    # transforms=[MultiplexerTransform()],
 )
 
 
@@ -114,7 +113,7 @@ def process_row(row, COLS_FOR_COPY):
         row["curDsaPath"] = deidFileStatus
         ## #Process / update DEID status here as well
         curDsaPath = row.get("curDsaPath", None)
-        print(curDsaPath)
+        # print(curDsaPath)
         if curDsaPath:
             if curDsaPath.startswith("/collection/WSI DeID/Approved"):
                 row["deidStatus"] = "In Approved Status"
@@ -151,7 +150,7 @@ def check_name_matches(
 ):
     ## Should be based on the context... need to debug
     ## Really need to get the context here in the future??
-    print(deidFlags)
+    # print(deidFlags)
 
     if nometa_button or updateItemStatus:
         print("Updating item status..")
@@ -191,41 +190,6 @@ def check_name_matches(
             print("Something broke:", e)
             return None, "slides-for-deid"
     return None, "slides-for-deid"
-
-
-## Changing this to deal with only a single input..
-@callback(
-    Output("output-data-upload", "children"),
-    Output("metadata_store", "data", allow_duplicate=True),
-    # Input("load-test-data-button", "n_clicks"),
-    Input("upload-data", "contents"),
-    State("upload-data", "filename"),
-    State("upload-data", "last_modified"),
-    prevent_initial_call=True,
-)
-def update_output(file_content, file_name, file_upload_date):
-    # if testdata_n_clicks or s.TEST_MODE:
-    if s.TEST_MODE:
-        # print("test data loader pushed")
-        return parse_testfile(s.TEST_FILENAME)
-
-    ### TO DO:  Handle exceptoin better, may want to use the mantine_notification provider
-    valid_extensions = ("csv", "xlsx")
-    if file_name.endswith(valid_extensions):
-        print("Valid extension found")
-    else:
-        print("Invalid exception found")
-        return [html.Div()], {}
-    ### Check and see if the file_name ends with .csv or .xlsx
-
-    if file_content is not None:
-        uploaded_file_layout, uploaded_file_data = parse_contents(
-            file_content, file_name, file_upload_date
-        )
-
-        return [uploaded_file_layout], uploaded_file_data
-
-    return [html.Div()], {}
 
 
 if __name__ == "__main__":

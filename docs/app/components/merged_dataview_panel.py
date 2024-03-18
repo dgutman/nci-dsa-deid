@@ -13,9 +13,6 @@ import settings as s
 import utils.barcodeHelpers as bch
 import utils.deidHelpersV2 as hlprs
 
-# import barcodeHelpers as bch
-# import deidHelpersV2 as hlprs
-
 ## Trying to add diskcache functionality
 
 

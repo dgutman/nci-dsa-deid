@@ -137,3 +137,9 @@ docs/.vscode/settings.json
 .vscode/settings.json
 devops/nci-dsa-deid/import
 devops/nci-dsa-deid/export
+docs/app/config.py.old
+docs/app/.vscode/settings.json
+docs/app/archived/leftCollapser.py
+docs/app/deidHelpers.broken.py
+.DS_Store
+docs/app/callbacker.py
