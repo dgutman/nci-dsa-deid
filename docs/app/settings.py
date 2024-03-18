@@ -21,6 +21,7 @@ gc = girder_client.GirderClient(apiUrl=DSA_BASE_URL)
 
 defaultItemList = list(gc.listItem(TEST_FOLDERID))
 
+load_dotenv(".env", override=True)
 DSAKEY = os.getenv("DSAKEY")
 # DSAKEY = None
 

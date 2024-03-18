@@ -1,18 +1,11 @@
-##Helper Functions to generate datamatrix barcodes
-from PIL import ImageFont, Image, ImageDraw, ImageColor
+import os
+from PIL import Image, ImageDraw
+import io, base64, math
+import utils.barcodeHelpers as bch
+from io import BytesIO
+import PIL
+from settings import gc
 from pylibdmtx.pylibdmtx import encode
-import math, json
-import PIL, os
-
-keysForBarcode = ["ASSAY", "BLOCK", "CASE", "INDEX", "PROJECT", "REPOSITORY", "STUDY"]
-
-logoImageFile = "/opt/nci-dsa-deid/nci_dsa_deid/NCI-logo-300x165.jpg"
-
-if os.path.isfile(logoImageFile):
-    pass
-else:
-    logoImageFile = "./NCI-logo-300x165.jpg"
-    ## During local testing the /opt path does not exist, so using local path
 
 
 def split_into_chunks(s, max_length=40):
@@ -28,7 +21,7 @@ def add_barcode_to_image(
     textColor="#000000",
     square=True,
     item=None,
-    logoImageFile=logoImageFile,
+    logoImageFile="NCI-logo-300x165.jpg",
 ):
     """
     Add both a title and a barcode to an image.  If the image doesn't exist, a new image is made
@@ -72,7 +65,7 @@ def add_barcode_to_image(
     max_textW = 0
     total_textH = 0
     for line in title_lines:
-        fontSize, textW, textH, imageDrawFont = computeFontSize(
+        fontSize, textW, textH, imageDrawFont = bch.computeFontSize(
             targetW, 0.15, line, fontFile="./DejaVuSansMono.ttf"
         )
         max_textW = max(max_textW, textW)
@@ -115,7 +108,7 @@ def add_barcode_to_image(
         targetW - titleH - logoImg.size[1]
     )  # space between title and logo
 
-    barcodeData = encode_barcode_string(item, keysForBarcode)
+    barcodeData = bch.encode_barcode_string(item, bch.keysForBarcode)
     encoded = encode(barcodeData.encode("utf8"))
     img = Image.frombytes("RGB", (encoded.width, encoded.height), encoded.pixels)
 
@@ -143,109 +136,83 @@ def add_barcode_to_image(
 
     return newImage
 
-    # ### Try to figure out the proper font size based on the size in pixels of the rendered text
-    # ## using fontsize of 0.15 as a starting point
-    # fontSize, textW, textH, imageDrawFont = computeFontSize(targetW, 0.15, title)
-    # ## Setting fontsize of 0.15 as default
 
-    # titleH = int(math.ceil(textH * 1.25))
+def create_image():
+    # Create a new image with white background
+    img = Image.new("RGB", (300, 300), color="white")
 
-    # ## I always want these to be a square..
+    # Get drawing context
+    d = ImageDraw.Draw(img)
 
-    # if square and (w != h or (not previouslyAdded or w != targetW or h < titleH)):
-    #     if targetW < h + titleH:
-    #         targetW = h + titleH
-    #     else:
-    #         titleH = targetW - h
-
-    # newImage = PIL.Image.new(mode=mode, size=(targetW, h + titleH), color=background)
-    # # newImage.paste(lblImage, (int((targetW - w) / 2), titleH))
-
-    # imageDraw = ImageDraw.Draw(newImage)
-    # imageDraw.rectangle((0, 0, targetW, titleH), fill=background, outline=None, width=0)
-    # imageDraw.text(
-    #     xy=(int((targetW - textW) / 2), int((titleH - textH) / 2)),
-    #     text=title,
-    #     fill=textColor,
-    #     font=imageDrawFont,
-    # )
-
-    # barcodeData = encode_barcode_string(item, keysForBarcode)
-    # encoded = encode(barcodeData.encode("utf8"))
-    # img = Image.frombytes("RGB", (encoded.width, encoded.height), encoded.pixels)
-    # ## Since I know the width, I can figure out the encoded width, and then try and center the barcode
-    # barcodeXoffset = int((targetW - encoded.width) / 2)
-    # newImage.paste(img, (barcodeXoffset, int(minWidth / 6)))
-
-    # ## TO DO make this a global parameter
-    # # logoImageFile = "/opt/nci-dsa-deid/nci_dsa_deid/NCI-logo-300x165.jpg"
-    # logoImg = Image.open(logoImageFile)
-
-    # logoOffsetX = int((targetW - logoImg.size[0]) / 2)
-    # logoOffsetY = int(targetW - logoImg.size[1])
-    # newImage.paste(logoImg, (logoOffsetX, logoOffsetY))
-
-    # return newImage
+    # Draw a blue rectangle and some text on the image
+    d.rectangle([(50, 50), (250, 250)], fill="blue")
+    d.text((100, 150), "Hello from Pillow", fill="white")
+    return img
 
 
-def encode_barcode_string(item, keys_to_encode):
+def image_to_base64(img):
+    buffered = io.BytesIO()
+    img.save(buffered, format="PNG")
+    return base64.b64encode(buffered.getvalue()).decode("utf-8")
+
+
+def pull_thumbnail_array(item_id, height=1000, encoding="PNG"):
     """
-    This encodes a barcode as a comma and pipe delimited string given an input dictionary
-    and the set of keys from the dictionary that should be encoded
-
-    :param item: this is the item object from girder, so contains metadata, as well as large image info
-    :param keys_to_encode This is an array of keys that should be included/encoded into the 2d Datamatrix
-
-    TODO: Figure out the max # of characters that can be in the output string before the barcode generation
-    starts getting out of hand, I don't want a 4kx4k barcode
-
+    Gets thumbnail image associated with provided item_id and with specified height
+    The aspect ratio is retained, so the width may not be equal to the height
+    Thumbnail is returned as a numpy array, after dropping alpha channel
+    Thumbnail encoding is specified as PNG by default
     """
-    # print(item)
-    deidDict = item["meta"]["deidUpload"]
-    ### We are placing the validated schema data at item.meta.deidUpload
+    thumb_download_endpoint = (
+        f"/item/{item_id}/tiles/thumbnail?encoding={encoding}&height={height}"
+    )
+    try:
+        thumb = gc.get(thumb_download_endpoint, jsonResp=False).content
+        thumb = np.array(Image.open(BytesIO(thumb)))
+        # dropping alpha channel and keeping only rgb
+        thumb = thumb[:, :, :3]
+    except:
+        thumb = np.ones((1000, 1000, 3), dtype=np.uint8)
+        # print(thumb)
+    return thumb
 
-    barcodeText = ""
-    for k in keys_to_encode:
-        if k in deidDict:
-            barcodeText += "%s,%s|" % (k, deidDict[k])
-    # print(barcodeText)
-    return barcodeText[:-1]  ## Strip off the final |
 
+def get_thumbnail_as_b64(item_id=None, thumb_array=False, height=256, encoding="PNG"):
+    """
+    If thumb_array provided, just converts, otherwise will fetch required thumbnail array
 
-def computeFontSize(
-    targetW,
-    fontSize,
-    title,
-    mode="RGB",
-    minWidth=384,
-    fontFile="DejaVuSansMono.ttf",
-    defaultFontSizeValue=8,
-):
-    ### Want to compute the biggest font that will fit in the allocated space for readbility
+    Fetches thumbnail image associated with provided item_id and with specified height
+    The aspect ratio is retained, so the width may not be equal to the height
 
-    # Build an empty image
-    img = Image.new(mode, (minWidth, minWidth))
-    imageDraw = ImageDraw.Draw(img)
+    Thumbnail is returned as b64 encoded string
+    """
+    thumb_download_endpoint = (
+        f"item/{item_id}/tiles/thumbnail?encoding={encoding}"  # &height={height}"
+    )
+    thumb = gc.get(thumb_download_endpoint, jsonResp=False).content
+    print("Pulling", item_id)
 
-    for iter in range(3, 0, -1):
-        try:
-            imageDrawFont = ImageFont.truetype(
-                fontFile,
-                size=int(fontSize * targetW),
-            )
-        except IOError:
-            try:
-                imageDrawFont = PIL.ImageFont.truetype(size=int(fontSize * targetW))
-            except IOError:
-                imageDrawFont = PIL.ImageFont.load_default()
-        textW, textH = imageDraw.textsize(title, imageDrawFont)
+    base64_encoded = base64.b64encode(thumb).decode("utf-8")
 
-        if textW == 0 or not textW:
-            # Either skip the calculation or set a default value for fontSize
-            textW = 0.2  # set this to a reasonable default
+    # ## TO DO: Cache this?
+    pickledItem = gc.get(
+        f"item/{item_id}/tiles/thumbnail?encoding=pickle", jsonResp=False
+    )
 
-        # print(fontSize, "is font size..")
-        if iter != 1 and (textW > targetW * 0.95 or textW < targetW * 0.85):
-            fontSize = fontSize * targetW * 0.9 / textW
+    # ## Need to have or cache the baseImage size as well... another feature to add
+    import pickle
 
-    return fontSize, textW, textH, imageDrawFont
+    baseImage_as_np = pickle.loads(pickledItem.content)
+
+    # if not thumb_array:
+    #     thumb_array = pull_thumbnail_array(item_id, height=height, encoding=encoding)
+
+    img_io = BytesIO()
+    Image.fromarray(baseImage_as_np).convert("RGB").save(img_io, "PNG", quality=95)
+    b64image = base64.b64encode(img_io.getvalue()).decode("utf-8")
+    # img_io = BytesIO()
+    # b64image = base64.b64encode(base6).decode("utf-8")
+    # html_img_tag = f'<img src="data:image/png;base64,{base64_encoded}" alt="Image" />'
+    html_img_src = f"data:image/png;base64,{b64image}"
+
+    return html_img_src
