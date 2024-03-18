@@ -4,9 +4,12 @@ DSA Plugin for image de-identification using the dsa-wsi-deid plugin
 **DSA instance used.**
 Link: [https://wsi-deid.pathology.emory.edu](https://wsi-deid.pathology.emory.edu/#)
 
+**Requirements**
+* Docker installed.
+
 **Instructions**
-* Run using docker.
-* clone this repository and navicate to it
+1. Clone repository (terminal example: ```$ git clone https://github.com/dgutman/nci-dsa-deid.git```) 
+2. Create environmental file by creating a ".env" file, copying the contents of "example.env" to it and modifying it appropriately.
 * ```$ cp example.env .env``` and add you DSA token for user access
 * ```$ cd docs/app```
 * Build the image: ```$ docker build -t <name of choice> .```
