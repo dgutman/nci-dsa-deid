@@ -189,26 +189,8 @@ tree_layout = html.Div(
             style=TOGGLE_BUTTON_STYLE,
         ),
     ],
-    style={"display": "flex", "background-color": "#f8f9fa", "height": "70%"},
+    style={"display": "flex", "background-color": "#f8f9fa", "height": "100%"},
 )
-
-
-@callback(
-    [Output("fld-tree-collapse", "is_open"), Output("btn_sidebar", "children")],
-    [
-        Input("btn_sidebar", "n_clicks"),
-        State("fld-tree-collapse", "is_open"),
-    ],
-    prevent_initial_call=True,
-)
-def collapse_tree(n_clicks: int, is_open) -> bool:
-    if n_clicks:
-        if is_open:
-            return False, DashIconify(icon="bi:arrow-right-circle-fill")
-        else:
-            return True, DashIconify(icon="bi:arrow-left-circle-fill")
-
-    return no_update, no_update
 
 
 content = html.Div(
@@ -248,7 +230,14 @@ sidebar = html.Div(
         tree_layout,
     ],
     id="sidebar",
-    # style=SIDEBAR_STYLE,
+    style={
+        "border": "4px solid #ddd",  # Optional: adds a border around the div
+        "margin": "1px",  # Adjust the margin here
+        "padding": "1px",
+        "box-shadow": "none",  # Adjust the padding here
+        "height": "100%",
+        "background-color": "#f8f9fa",
+    },
 )
 
 
@@ -458,24 +447,19 @@ def update_recently_clicked_folder(n_clicks, folder_id):
     return no_update  ### if there's an error?
 
 
-# # Add a callback to handle the collapsing and expanding of the sidebar
-# @callback(
-#     [
-#         Output("sidebar_col", "style"),
-#         Output("content_col", "style"),
-#         Output("vertical_text", "style"),
-#     ],
-#     [Input("btn_sidebar", "n_clicks")],
-#     prevent_initial_call=True,
-# )
-# def toggle_sidebar(n_clicks):
-#     if n_clicks % 2 == 0:  # Sidebar is expanded
-#         sidebar_style = {"padding": 0}
-#         content_style = {"width": 9}
-#         vertical_text_style = {"display": "none"}  # hide the vertical text
-#     else:  # Sidebar is collapsed
-#         sidebar_style = {"padding": 0, "width": 0}  # hide the sidebar
-#         content_style = {"width": 10}  # expand the content
-#         vertical_text_style = {"display": "block"}  # show the vertical text
+@callback(
+    [Output("fld-tree-collapse", "is_open"), Output("btn_sidebar", "children")],
+    [
+        Input("btn_sidebar", "n_clicks"),
+        State("fld-tree-collapse", "is_open"),
+    ],
+    prevent_initial_call=True,
+)
+def collapse_tree(n_clicks: int, is_open) -> bool:
+    if n_clicks:
+        if is_open:
+            return False, DashIconify(icon="bi:arrow-right-circle-fill")
+        else:
+            return True, DashIconify(icon="bi:arrow-left-circle-fill")
 
-#     return sidebar_style, content_style, vertical_text_style
+    return no_update, no_update

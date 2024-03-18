@@ -26,4 +26,5 @@ slideListTab_content = dbc.Card(
         ]
     ),
     className="mt-4",
+    style={"height": "100%"},
 )

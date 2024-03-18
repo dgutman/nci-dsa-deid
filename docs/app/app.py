@@ -50,7 +50,10 @@ app = Dash(
 tabs = dbc.Tabs(
     [
         dbc.Tab(
-            slideListTab_content, label="Slides For DeID", tab_id="slides-for-deid"
+            slideListTab_content,
+            label="Slides For DeID",
+            tab_id="slides-for-deid",
+            style={"height": "100%"},
         ),
         dbc.Tab(metadata_upload_layout, label="Slide Metadata ", tab_id="metadata"),
         # dbc.Tab(debug_buttons, label="Debug Tools", tab_id="debug-tools"),
@@ -87,7 +90,7 @@ app.layout = dmc.NotificationsProvider(
             html.Div(id="last-clicked-folder", style={"display": "none"}),
             tabs,
         ],
-        style={"height": "100%"},
+        style={"height": "100vh"},
     )
 )
 
