@@ -136,3 +136,4 @@ websocket-client==1.6.1
 Werkzeug==2.2.3
 widgetsnbextension==4.0.8
 zipp==3.16.2
+girder==3.2.2

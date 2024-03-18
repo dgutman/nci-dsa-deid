@@ -5,7 +5,7 @@ from jsonschema import Draft7Validator
 import settings as s
 import io, base64, json, jsonschema, random, datetime
 import dash_ag_grid as dag
-import config
+import docs.app.config as config
 
 """This is a set of helper functions for debug purposes for the NCI DEID app
 This includes some cleanup functions to remove images during testing that were uploaded 
@@ -181,10 +181,10 @@ def get_standard_redactions_format_aperio(item, tileSource, tiffinfo, title):
         },
     }
     if metadata["openslide"].get("aperio.Date"):
-        redactList["metadata"][
-            "internal;openslide;aperio.Date"
-        ] = generate_system_redaction_list_entry(
-            "01/01/" + metadata["openslide"]["aperio.Date"][6:]
+        redactList["metadata"]["internal;openslide;aperio.Date"] = (
+            generate_system_redaction_list_entry(
+                "01/01/" + metadata["openslide"]["aperio.Date"][6:]
+            )
         )
     return redactList
 

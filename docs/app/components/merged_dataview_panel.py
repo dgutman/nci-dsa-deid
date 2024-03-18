@@ -7,11 +7,14 @@ import io, base64, dash, json, girder_client
 from pprint import pprint
 import dash_ag_grid as dag
 from settings import gc
-import deidHelpersV2 as hlprs
 from concurrent.futures import ThreadPoolExecutor
 import json
 import settings as s
-import barcodeHelpers as bch
+import utils.barcodeHelpers as bch
+import utils.deidHelpersV2 as hlprs
+
+# import barcodeHelpers as bch
+# import deidHelpersV2 as hlprs
 
 ## Trying to add diskcache functionality
 
@@ -273,7 +276,6 @@ def updateMergedDatatable(mergeddata):
 
 
 ### TO DO is DEFINE FUNCTION THAT DEALS WITH APPROVED / MERGED / ETC...
-
 
 
 @callback(
