@@ -7,11 +7,8 @@ import settings as s
 
 import io, base64, json, jsonschema, random, datetime
 import dash_ag_grid as dag
-<<<<<<< Updated upstream
-import docs.app.config as config
-=======
+import config
 import base64
->>>>>>> Stashed changes
 
 # import config
 
@@ -177,28 +174,6 @@ def parse_contents(contents, filename, date):
 #     return jsonschema.Draft6Validator()
 
 
-<<<<<<< Updated upstream
-def get_standard_redactions_format_aperio(item, tileSource, tiffinfo, title):
-    metadata = tileSource.getInternalMetadata() or {}
-    title_redaction_list_entry = generate_system_redaction_list_entry(title)
-    redactList = {
-        "images": {},
-        "metadata": {
-            "internal;openslide;aperio.Filename": title_redaction_list_entry,
-            "internal;openslide;aperio.Title": title_redaction_list_entry,
-            "internal;openslide;tiff.Software": generate_system_redaction_list_entry(
-                get_deid_field(item, metadata.get("openslide", {}).get("tiff.Software"))
-            ),
-        },
-    }
-    if metadata["openslide"].get("aperio.Date"):
-        redactList["metadata"]["internal;openslide;aperio.Date"] = (
-            generate_system_redaction_list_entry(
-                "01/01/" + metadata["openslide"]["aperio.Date"][6:]
-            )
-        )
-    return redactList
-=======
 # def get_standard_redactions_format_aperio(item, tileSource, tiffinfo, title):
 #     metadata = tileSource.getInternalMetadata() or {}
 #     title_redaction_list_entry = generate_system_redaction_list_entry(title)
@@ -219,7 +194,6 @@ def get_standard_redactions_format_aperio(item, tileSource, tiffinfo, title):
 #             )
 #         )
 #     return redactList
->>>>>>> Stashed changes
 
 
 # def get_deid_field(item, prefix=None):
