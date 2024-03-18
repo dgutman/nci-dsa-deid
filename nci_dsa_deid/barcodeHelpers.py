@@ -1,24 +1,19 @@
 ##Helper Functions to generate datamatrix barcodes
 from PIL import ImageFont, Image, ImageDraw, ImageColor
-import pylibdmtx
-
-# from pylibdmtx.pylibdmtx import encode
-
 from pylibdmtx.pylibdmtx import encode
 import math, json
 import PIL, os
 
 keysForBarcode = ["ASSAY", "BLOCK", "CASE", "INDEX", "PROJECT", "REPOSITORY", "STUDY"]
 
-
-
-logoImageFile="/opt/nci-dsa-deid/nci_dsa_deid/NCI-logo-300x165.jpg"
+logoImageFile = "/opt/nci-dsa-deid/nci_dsa_deid/NCI-logo-300x165.jpg"
 
 if os.path.isfile(logoImageFile):
     pass
 else:
     logoImageFile = "./NCI-logo-300x165.jpg"
     ## During local testing the /opt path does not exist, so using local path
+
 
 def split_into_chunks(s, max_length=40):
     return [s[i : i + max_length] for i in range(0, len(s), max_length)]
@@ -72,7 +67,7 @@ def add_barcode_to_image(
     # Split the title into multiple lines if necessary
     title_lines = split_into_chunks(title)
 
-  # print(title_lines, "was passed..")
+    # print(title_lines, "was passed..")
     # Compute the font size and text width for each line
     max_textW = 0
     total_textH = 0
@@ -147,7 +142,6 @@ def add_barcode_to_image(
     newImage.paste(logoImg, (logoOffsetX, logoOffsetY))
 
     return newImage
-
 
     # ### Try to figure out the proper font size based on the size in pixels of the rendered text
     # ## using fontsize of 0.15 as a starting point
