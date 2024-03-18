@@ -43,21 +43,6 @@ for c in collections:
 # ## call and it becomes confusing to follow..
 
 
-SIDEBAR_STYLE = {
-    # "position": "relative",
-    # "top": 0,
-    # "left": 0,
-    # "bottom": 0,
-    # "width": "30rem",
-    # "height": "100%",
-    # "z-index": 1,
-    # "overflow-x": "hidden",
-    # "transition": "all 0.5s",
-    # "padding": "0.5rem 1rem",
-    # "background-color": "#f8f9fa",
-}
-
-
 SIDEBAR_COLLAPSED = {
     # "position": "fixed",
     "top": 62.5,
