@@ -1,0 +1,42 @@
+.hover-cell {
+    position: relative;
+}
+
+.modal-input-height {
+    height: 38px
+}
+
+.userNameDisplay {
+    font-size: 20px;
+    text-align: center;
+    /* Add any additional styles here */
+}
+
+/* # Show the full content  */
+.hover-cell:hover::before {
+    content: attr(data-hover-content);
+    position: absolute;
+    background-color: white;
+    border: 1px solid black;
+    padding: 5px;
+    z-index: 1;
+    top: -5px;
+    left: 105%;
+    /* # Adjust as needed */
+}
+
+
+/* For cells */
+.ag-cell {
+    font-size: 12px;
+    margin-top: 0px;
+    margin-bottom: 0px;
+    padding-top: 0px;
+    /* or whatever size you prefer */
+}
+
+/* For headers */
+.ag-header-cell {
+    font-size: 16px;
+    /* or whatever size you prefer */
+}

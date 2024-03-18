@@ -283,9 +283,10 @@ def updateMergedDatatable(mergeddata):
     Input("submit-deid-button", "n_clicks"),
     State("mergedItem_store", "data"),
     State("deid-flag-inputs", "value"),
+    State("metadata_store", "data"),
     prevent_initial_call=True,
 )
-def submit_for_deid(n_clicks, data, deidFlags):
+def submit_for_deid(n_clicks, data, deidFlags, metadataList):
     if not n_clicks or not data:
         raise PreventUpdate
 

@@ -10,6 +10,8 @@ DSA_BASE_URL = "https://wsi-deid.pathology.emory.edu/api/v1"
 
 TEST_FOLDERID = "64da4e64309a9ffde668b9e6"  ## VISUM FOLDER
 
+TEST_FOLDERID = "6452a8b1239ec54642356cad"  ## This has 31 files
+
 DSA_UNFILED_FOLDER = (
     "/WSI DeID/Unfiled"  ## This is for internal bookkeeping, Will be hidden
 )

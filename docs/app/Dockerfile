@@ -15,4 +15,7 @@ RUN apt-get update
 RUN apt-get install libdmtx0b
 
 # CMD python app.py
-CMD bash
+#CMD bash
+
+
+ENTRYPOINT [ "python","app.py"]
