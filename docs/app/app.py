@@ -58,6 +58,7 @@ tabs = dbc.Tabs(
         dbc.Tab(instructions_tab, label="Instructions", tab_id="intructions-tab"),
     ],
     id="main-tabs",
+    style={"fontSize": 12, "fontWeight": "bold"},
 )
 
 
@@ -68,14 +69,14 @@ app.layout = dmc.NotificationsProvider(
     html.Div(
         [
             html.Script(src="/assets/customRenderer.js"),
-            html.Div(
-                id={"type": "selected-folder", "id": "TBD", "level": 0},
-                style={
-                    "font-size": "20px",
-                    "font-weight": "bold",
-                    "margin-bottom": "20px",
-                },
-            ),
+            # html.Div(
+            #     id={"type": "selected-folder", "id": "TBD", "level": 0},
+            #     style={
+            #         "font-size": "20px",
+            #         "font-weight": "bold",
+            #         "margin-bottom": "20px",
+            #     },
+            # ),
             # modal_tree,
             dsa_login_panel,
             dcc.Store(id="itemList_store", data=s.defaultItemList),
@@ -85,7 +86,8 @@ app.layout = dmc.NotificationsProvider(
             dcc.Store({"type": "datastore", "id": "ils", "level": 2}),
             html.Div(id="last-clicked-folder", style={"display": "none"}),
             tabs,
-        ]
+        ],
+        style={"height": "100%"},
     )
 )
 
