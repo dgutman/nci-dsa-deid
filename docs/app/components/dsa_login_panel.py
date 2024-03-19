@@ -82,7 +82,6 @@ dsa_login_panel = dmc.Grid(
     ],
     gutter="xl",
     justify="end",
-    style={"height": "30%"},
 )
 
 loginSuccess = dmc.Notification(
