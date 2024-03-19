@@ -206,6 +206,7 @@ def submitImageForDeId(row):
         except girder_client.HttpError as e:
             print(e)
         ## TO DO.. MOVE THIS TO THE DEBUG AREA
+        ### FURTHER TO DO IS MAKE SURE FILES DO NOT HAVE A (1) in their name... I find that annoying
 
 
 ## TO DO-- DETERMINE IF I NEED TO SET A SIZE_LIMIT FOR THE CACHE
@@ -227,6 +228,8 @@ def updateMergedDatatable(mergeddata):
                 row["valid_style"] = {"backgroundColor": "green"}
             else:
                 row["valid_style"] = {}
+
+            ## JC TO DO.. ADD SOME COLOR TO THE deID Status column in a less stupid way..
 
         merged_grid = [
             dag.AgGrid(
@@ -255,6 +258,10 @@ def updateMergedDatatable(mergeddata):
                             {
                                 "condition": "params.colDef.headerName == 'Make'",
                                 "style": {"backgroundColor": "red", "color": "yellow"},
+                            },
+                            {
+                                "condition": "params.value == 'Submitted'",
+                                "style": {"backgroundColor": "green", "color": "white"},
                             },
                         ]
                     },
@@ -286,6 +293,7 @@ def updateMergedDatatable(mergeddata):
     prevent_initial_call=True,
 )
 def submit_for_deid(n_clicks, data, deidFlags, metadataList):
+    print("HELLO CRUEL WORLD???")
     if not n_clicks or not data:
         raise PreventUpdate
 

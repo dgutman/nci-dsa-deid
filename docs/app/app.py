@@ -92,6 +92,7 @@ def process_row(row, COLS_FOR_COPY, metadataDict):
     ]  ## the name of the file is the input file name per the schema
 
     if row["name"] in metadataDict:
+
         row["match_result"] = "Match"
         matched_metadata = metadataDict[row["name"]]
         for col in COLS_FOR_COPY:
@@ -133,11 +134,11 @@ def process_row(row, COLS_FOR_COPY, metadataDict):
                 row["deidStatus"] = "AvailableToProcess Folder"
 
     if validator.is_valid(row):
-        print(row, "was validated??")
+        # print(row, "was validated??")
         row["valid"] = "Es Bueno"
     else:
         row["valid"] = "Es Malo"
-        print("Row was not valid:", row)
+        # print("Row was not valid:", row)
 
     return row
 
@@ -148,7 +149,6 @@ def process_row(row, COLS_FOR_COPY, metadataDict):
         Output("main-tabs", "active_tab"),  # Add this line
     ],
     Input("check-match-button", "n_clicks"),
-    # Input("no-meta-deid-button", "n_clicks"),
     State("metadata_store", "data"),
     State("itemList_store", "data"),
     State("deid-flag-inputs", "value"),
@@ -177,52 +177,21 @@ def check_name_matches(
 
     print(ctx.triggered_id, "was the triggered id")
 
-    if ctx.triggered_id == "validate-deid-status-button":
-        # print("Validating DEID status..")
-        with ThreadPoolExecutor() as executor:
-            results = list(
-                executor.map(
-                    process_row,
-                    itemlist_data,
-                    [s.COLS_FOR_COPY] * len(itemlist_data),
-                    metadata_mapping,
-                )
+    with ThreadPoolExecutor() as executor:
+        results = list(
+            executor.map(
+                process_row,
+                itemlist_data,
+                [s.COLS_FOR_COPY] * len(itemlist_data),
+                [metadata_mapping]
+                * len(itemlist_data),  ## Note this oddity of science..
             )
+        )
 
+    if ctx.triggered_id == "validate-deid-status-button":
         return results, "merged-data"
-
-    try:
-        for row in itemlist_data:
-            row["InputFileName"] = row[
-                "name"
-            ]  ## Need this alias for the schema to validate
-            if row["name"] in metadata_mapping:
-                row["match_result"] = "Match"
-                matched_metadata = metadata_mapping[row["name"]]
-                for col in s.COLS_FOR_COPY:
-                    if (
-                        col in matched_metadata
-                    ):  # Ensure the column exists in the metadata
-                        row[col] = matched_metadata[col]
-            else:
-                row["match_result"] = (
-                    "No Match"  # if nometa_button or updateItemStatus:
-                )
-            validator = Draft7Validator(s.SCHEMA)
-            if validator.is_valid(row):
-                row["valid"] = True
-            else:
-                row["valid"] = False
-                error_list = validator.iter_errors(row)
-                for e in error_list:
-                    print(e)
-                # print(error_list)
-
-        return itemlist_data, "merged-data"
-    except Exception as e:
-        print("Something broke:", e)
-
-    return None, "slides-for-deid"
+    else:
+        return results, "merged-data"
 
 
 if __name__ == "__main__":
