@@ -46,17 +46,12 @@ tabs = dbc.Tabs(
     [
         dbc.Tab(
             slideListTab_content, label="Slides For DeID", tab_id="slides-for-deid"
-            slideListTab_content,
-            label="Slides For DeID",
-            tab_id="slides-for-deid",
-            style={"height": "100%"},
         ),
         dbc.Tab(metadata_upload_layout, label="Slide Metadata ", tab_id="metadata"),
         dbc.Tab(merged_data_panel, label="Merged Data", tab_id="merged-data"),
         dbc.Tab(instructions_tab, label="Instructions", tab_id="intructions-tab"),
     ],
     id="main-tabs",
-    style={"fontSize": 12, "fontWeight": "bold"},
 )
 
 
@@ -72,14 +67,6 @@ app.layout = dmc.NotificationsProvider(
                     "margin-bottom": "20px",
                 },
             ),
-            # html.Div(
-            #     id={"type": "selected-folder", "id": "TBD", "level": 0},
-            #     style={
-            #         "font-size": "20px",
-            #         "font-weight": "bold",
-            #         "margin-bottom": "20px",
-            #     },
-            # ),
             # modal_tree,
             dsa_login_panel,
             dcc.Store(id="itemList_store", data=s.defaultItemList),
@@ -90,8 +77,6 @@ app.layout = dmc.NotificationsProvider(
             html.Div(id="last-clicked-folder", style={"display": "none"}),
             tabs,
         ]
-        ],
-        style={"height": "100vh"},
     )
 )
 

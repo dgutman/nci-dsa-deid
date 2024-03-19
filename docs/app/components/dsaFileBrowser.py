@@ -43,12 +43,27 @@ for c in collections:
 # ## call and it becomes confusing to follow..
 
 
+SIDEBAR_STYLE = {
+    "position": "relative",
+    "top": 0,
+    "left": 0,
+    "bottom": 0,
+    "width": "30rem",
+    "height": "100%",
+    "z-index": 1,
+    "overflow-x": "hidden",
+    "transition": "all 0.5s",
+    "padding": "0.5rem 1rem",
+    "background-color": "#f8f9fa",
+}
+
+
 SIDEBAR_COLLAPSED = {
     # "position": "fixed",
     "top": 62.5,
     "left": "-27rem",  # Adjust this value so a portion of the sidebar remains visible
     "bottom": 0,
-    # "width": "30rem",  # Keep the width the same as the expanded sidebar
+    "width": "30rem",  # Keep the width the same as the expanded sidebar
     "height": "100%",
     "z-index": 1,
     "overflow-x": "hidden",
@@ -84,7 +99,6 @@ CONTENT_STYLE = {
     "margin-right": "2rem",
     "padding": "0rem 0rem",
     "background-color": "#f8f9fa",
-    "width": "100%",
 }
 
 
@@ -150,33 +164,60 @@ def folder_div(collection_folder):
     )
 
 
-tree_components = [
-    dcc.Markdown(
-        "## Folder Tree", style={"marginBottom": 10, "marginTop": 10, "marginLeft": 10}
-    )
-]
-
-for collection in collections:
-    tree_components.append(folder_div(collection))
-
 tree_layout = html.Div(
     [
-        dbc.Collapse(
-            tree_components,
-            is_open=True,
-            id="fld-tree-collapse",
-            dimension="width",
+        dbc.Row(
+            [
+                dbc.Col(
+                    dcc.Markdown("## Folder Tree"), width=11
+                ),  # This takes up 11 out of 12 parts of the width
+                dbc.Col(
+                    dbc.Button(
+                        DashIconify(icon="bi:arrow-left-circle-fill"),
+                        id="btn_sidebar",
+                        className="toggle-button",
+                        style=TOGGLE_BUTTON_STYLE,
+                        n_clicks=0,
+                    ),
+                    width=1,  # This takes up 1 out of 12 parts of the width
+                    style={"padding": 0, "margin-left": "-10px", "margin-top": "10px"},
+                ),
+            ]
         ),
-        dbc.Button(
-            DashIconify(icon="bi:arrow-left-circle-fill"),
-            id="btn_sidebar",
-            className="toggle-button",
-            style=TOGGLE_BUTTON_STYLE,
+        html.Div(
+            [
+                html.Div(
+                    folder_div(collection),
+                )
+                for collection in collections
+            ],
+            style={
+                "height": "750px",
+                "overflow": "scroll",
+                "border": "0px",
+                "padding-right": "0px",
+                "border": "0px",
+            },
         ),
     ],
-    style={"display": "flex", "background-color": "#f8f9fa", "height": "100%"},
+    style={
+        "border": "4px solid #ddd",  # Optional: adds a border around the div
+        "margin": "1px",  # Adjust the margin here
+        "padding": "1px",
+        "box-shadow": "none",  # Adjust the padding here
+    },
 )
 
+
+sidebar = html.Div(
+    [
+        dcc.Store(id="last_clicked_folder"),
+        dcc.Store(id="folderId_store"),
+        tree_layout,
+    ],
+    id="sidebar",
+    style=SIDEBAR_STYLE,
+)
 
 content = html.Div(
     id="itemListinfo",
@@ -207,72 +248,16 @@ content = html.Div(
     style=CONTENT_STYLE,
 )
 
-
-sidebar = html.Div(
-    [
-        dcc.Store(id="last_clicked_folder"),
-        dcc.Store(id="folderId_store"),
-        tree_layout,
-    ],
-    id="sidebar",
-    style={
-        "border": "4px solid #ddd",  # Optional: adds a border around the div
-        "margin": "1px",  # Adjust the margin here
-        "padding": "1px",
-        "box-shadow": "none",  # Adjust the padding here
-        "height": "100%",
-        "background-color": "#f8f9fa",
-    },
-)
-
-
-dsaFileTree_layout = html.Div(
+dsaFileTree_layout = dbc.Row(
     [
         dcc.Store(id="side_click"),
         dcc.Location(id="url"),
-        html.Div(
-            [
-                html.Div(sidebar, style={"marginRight": 15}),
-                content,
-            ],
-            style={"display": "flex"},
-        ),
+        dbc.Col(sidebar, width=3, style={"padding": 0}, id="sidebar_col"),
+        dbc.Col(content, width=9, id="content_col"),
     ],
-    style={"height": "100%"},
 )
 
 
-slideListTab_content = html.Div(
-    [
-        dbc.Row(
-            [
-                dbc.Row(
-                    [
-                        dbc.Button(
-                            "Match Metadata",
-                            id="check-match-button",
-                            className="me-2",
-                            style={"maxWidth": 300},
-                        ),
-                        dbc.Button(
-                            "JustDeID",
-                            id="no-meta-deid-button",
-                            className="me-1",
-                            style={"maxWidth": 300},
-                        ),
-                        html.Div(id="current_selected_folder"),
-                    ]
-                ),
-            ],
-            className="mt-4",
-        ),
-        dsaFileTree_layout,
-    ],
-    style={"height": "100%"},
-)
-
-
-### CALLBACKS
 @callback(
     [
         Output({"type": "subfolders", "id": MATCH, "level": MATCH}, "children"),
@@ -433,18 +418,59 @@ def update_recently_clicked_folder(n_clicks, folder_id):
 
 
 @callback(
-    [Output("fld-tree-collapse", "is_open"), Output("btn_sidebar", "children")],
-    [
-        Input("btn_sidebar", "n_clicks"),
-        State("fld-tree-collapse", "is_open"),
-    ],
+    Output("sidebar", "style"),
+    [Input("btn_sidebar", "n_clicks")],
+    [State("sidebar", "style")],
     prevent_initial_call=True,
 )
-def collapse_tree(n_clicks: int, is_open) -> bool:
-    if n_clicks:
-        if is_open:
-            return False, DashIconify(icon="bi:arrow-right-circle-fill")
-        else:
-            return True, DashIconify(icon="bi:arrow-left-circle-fill")
+def toggle_sidebar(n, style):
+    if style and "left" in style and style["left"] == "0px":
+        return {**style, "left": "-25rem"}
+    return {**style, "left": "0px"}
 
-    return no_update, no_update
+
+slideListTab_content = dbc.Row(
+    [
+        dbc.Row(
+            [
+                dbc.Button(
+                    "Match Metadata",
+                    id="check-match-button",
+                    className="me-2",
+                    style={"maxWidth": 300},
+                ),
+                dbc.Button(
+                    "JustDeID",
+                    id="no-meta-deid-button",
+                    className="me-1",
+                    style={"maxWidth": 300},
+                ),
+                html.Div(id="current_selected_folder"),
+            ]
+        ),
+        dsaFileTree_layout,
+    ],
+    className="mt-4",
+)
+
+# # Add a callback to handle the collapsing and expanding of the sidebar
+# @callback(
+#     [
+#         Output("sidebar_col", "style"),
+#         Output("content_col", "style"),
+#         Output("vertical_text", "style"),
+#     ],
+#     [Input("btn_sidebar", "n_clicks")],
+#     prevent_initial_call=True,
+# )
+# def toggle_sidebar(n_clicks):
+#     if n_clicks % 2 == 0:  # Sidebar is expanded
+#         sidebar_style = {"padding": 0}
+#         content_style = {"width": 9}
+#         vertical_text_style = {"display": "none"}  # hide the vertical text
+#     else:  # Sidebar is collapsed
+#         sidebar_style = {"padding": 0, "width": 0}  # hide the sidebar
+#         content_style = {"width": 10}  # expand the content
+#         vertical_text_style = {"display": "block"}  # show the vertical text
+
+#     return sidebar_style, content_style, vertical_text_style
