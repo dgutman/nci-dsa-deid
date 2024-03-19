@@ -87,6 +87,7 @@ MERGED_COL_DEFS = [
     {"field": "ASSAY"},
     {"field": "INDEX"},
     {"field": "ImageID"},
+    {"field": "valid"},
 ]
 
 

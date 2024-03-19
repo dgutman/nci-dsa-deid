@@ -1,5 +1,4 @@
-from dash import callback, State, dcc
-from dash_extensions.enrich import Output, Input, html
+from dash import callback, State, dcc, Output, Input, html
 import dash_bootstrap_components as dbc
 from dash.exceptions import PreventUpdate
 
@@ -11,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 import json
 import settings as s
 import utils.barcodeHelpers as bch
-import utils.deidHelpersV2 as hlprs
+import utils.deidHelpers as hlprs
 
 ## Trying to add diskcache functionality
 
@@ -238,7 +237,7 @@ def updateMergedDatatable(mergeddata):
                     resizable=True,
                     editable=True,
                     sortable=True,
-                    maxWidth=150,
+                    maxWidth=250,
                     minWidth=30,
                     cellStyle={
                         "styleConditions": [
@@ -295,9 +294,9 @@ def submit_for_deid(n_clicks, data, deidFlags, metadataList):
         deidFlags = []
     print(len(data), "elements were received for processing")
     for row in data:
-        print(row)
+        # print(row)
         curDsaPath = row.get("curDsaPath", None)
-        print(curDsaPath)
+        # print(curDsaPath,row)
         if curDsaPath:
             if curDsaPath.startswith("/collection/WSI DeID/Approved"):
                 row["deidStatus"] = "In Approved Status"
@@ -333,8 +332,8 @@ def processDeIDset(data, deID_flags):
             x["_id"] for x in data if x["deidStatus"] == "AvailableToProcess Folder"
         ]
         status = gc.put(f"wsi_deid/action/list/process?ids={json.dumps(atp_imageIds)}")
-        print(status)
-        print(atp_imageIds)
+        # print(status)
+        # print(atp_imageIds)
 
     if "batchSubmit_redacted" in deID_flags:
         redact_imageIds = [
@@ -345,8 +344,7 @@ def processDeIDset(data, deID_flags):
         )
         print(status)
 
-        print(redact_imageIds)
-    # gc.put(  /wsi_deid/action/list/{action}?ids=["",""]
+        # print(redact_imageIds)
 
 
 @callback(Output("currentItemMacro", "src"), Input("merged-datagrid", "selectedRows"))

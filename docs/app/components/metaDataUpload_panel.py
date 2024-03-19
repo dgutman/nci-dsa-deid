@@ -1,6 +1,6 @@
 from dash import dcc, html, Input, Output, State, callback, no_update
 import dash_bootstrap_components as dbc
-from deidHelpers import parse_testfile, parse_contents
+from utils.deidHelpers import parse_testfile, parse_contents
 import settings as s
 
 

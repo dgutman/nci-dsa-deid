@@ -1,13 +1,15 @@
 # Library imports
 import dash_bootstrap_components as dbc
-import dash_ag_grid as dag
+import dash_mantine_components as dmc
+from jsonschema import Draft7Validator
+import datetime, os
+
 from dash import (
     Dash,
     State,
     callback,
     callback_context,
     dcc,
-    ctx,
     Input,
     Output,
     State,
@@ -15,22 +17,16 @@ from dash import (
 )
 
 
-import datetime
-
-# from dash_extensions.enrich import Output, DashProxy, Input, MultiplexerTransform, html
-from components.merged_dataview_panel import merged_data_panel, checkForExistingFile
-import os
 from concurrent.futures import ThreadPoolExecutor
 
-# Local modules
-
-from components.dsaFileBrowser import slideListTab_content
-
-from components.dsa_login_panel import dsa_login_panel
 import settings as s
-import dash_mantine_components as dmc
+
+# Local modules and panels
+from components.dsaFileBrowser import slideListTab_content
+from components.dsa_login_panel import dsa_login_panel
 from components.instructionPanel import instructions_tab
 from components.metaDataUpload_panel import metadata_upload_layout
+from components.merged_dataview_panel import merged_data_panel, checkForExistingFile
 
 
 external_stylesheets = [
@@ -52,15 +48,11 @@ tabs = dbc.Tabs(
             slideListTab_content, label="Slides For DeID", tab_id="slides-for-deid"
         ),
         dbc.Tab(metadata_upload_layout, label="Slide Metadata ", tab_id="metadata"),
-        # dbc.Tab(debug_buttons, label="Debug Tools", tab_id="debug-tools"),
         dbc.Tab(merged_data_panel, label="Merged Data", tab_id="merged-data"),
         dbc.Tab(instructions_tab, label="Instructions", tab_id="intructions-tab"),
     ],
     id="main-tabs",
 )
-
-
-## TO DO .. MAKE THIS ASYNCHRONOUS WITH CALLBACK AT ON THE SCREEN THAT ALSO DISALES THE SUBMIT BUTTON!!
 
 
 app.layout = dmc.NotificationsProvider(
@@ -89,18 +81,34 @@ app.layout = dmc.NotificationsProvider(
 )
 
 
-## This can be praallelized
-def process_row(row, COLS_FOR_COPY):
+## This can be parallelized
+def process_row(row, COLS_FOR_COPY, metadataDict):
+    validator = Draft7Validator(s.SCHEMA)
     row["match_result"] = "NoMeta"
     row["curDsaPath"] = None
-    for idx, col in enumerate(COLS_FOR_COPY):
-        row[col] = str(idx)
-    row["valid"] = True
+
+    row["InputFileName"] = row[
+        "name"
+    ]  ## the name of the file is the input file name per the schema
+
+    if row["name"] in metadataDict:
+        row["match_result"] = "Match"
+        matched_metadata = metadataDict[row["name"]]
+        for col in COLS_FOR_COPY:
+            if col in matched_metadata:
+                row[col] = matched_metadata[col]
+    else:
+        ### Just insert null values for the required metadata columns..
+        for idx, col in enumerate(COLS_FOR_COPY):
+            row[col] = " "  # str(idx)
+        row["valid"] = False
 
     ## Change the default to a datetime instead of just 0
     today = datetime.date.today()
 
-    if row["SampleID"] == "0":
+    if (
+        row["SampleID"] == " "
+    ):  ## If the sampleID is empty, then we will generate a new one
         row["SampleID"] = "Batch-%s" % today.strftime("%Y%m%d")
 
     if not row["name"].endswith(".svs"):
@@ -124,6 +132,13 @@ def process_row(row, COLS_FOR_COPY):
             elif curDsaPath.startswith("/collection/WSI DeID/AvailableToProcess"):
                 row["deidStatus"] = "AvailableToProcess Folder"
 
+    if validator.is_valid(row):
+        print(row, "was validated??")
+        row["valid"] = "Es Bueno"
+    else:
+        row["valid"] = "Es Malo"
+        print("Row was not valid:", row)
+
     return row
 
 
@@ -133,7 +148,7 @@ def process_row(row, COLS_FOR_COPY):
         Output("main-tabs", "active_tab"),  # Add this line
     ],
     Input("check-match-button", "n_clicks"),
-    Input("no-meta-deid-button", "n_clicks"),
+    # Input("no-meta-deid-button", "n_clicks"),
     State("metadata_store", "data"),
     State("itemList_store", "data"),
     State("deid-flag-inputs", "value"),
@@ -142,7 +157,6 @@ def process_row(row, COLS_FOR_COPY):
 )
 def check_name_matches(
     checkmatch_clicks,
-    nometa_button,
     metadata,
     itemlist_data,
     deidFlags,
@@ -151,44 +165,63 @@ def check_name_matches(
     ## Should be based on the context... need to debug
     ## Really need to get the context here in the future??
     # print(deidFlags)
+    ctx = callback_context
 
-    if nometa_button or updateItemStatus:
-        print("Updating item status..")
+    s.logger.info(f"{len(metadata)} rows are in the metadata table")
+    s.logger.info(f"{len(itemlist_data)} rows are in the current itemlist")
+
+    if metadata:
+        metadata_mapping = {row["InputFileName"]: row for row in metadata}
+    else:
+        metadata_mapping = {}
+
+    print(ctx.triggered_id, "was the triggered id")
+
+    if ctx.triggered_id == "validate-deid-status-button":
+        # print("Validating DEID status..")
         with ThreadPoolExecutor() as executor:
             results = list(
                 executor.map(
-                    process_row, itemlist_data, [s.COLS_FOR_COPY] * len(itemlist_data)
+                    process_row,
+                    itemlist_data,
+                    [s.COLS_FOR_COPY] * len(itemlist_data),
+                    metadata_mapping,
                 )
             )
 
         return results, "merged-data"
 
-    # Create a mapping from filename to its metadata
-    ### Make sure I only run this is there is actually metadata..
-    if metadata:
-        metadata_mapping = {row["InputFileName"]: row for row in metadata}
-
-        s.logger.info(f"{len(metadata)} rows are in the metadata table")
-        s.logger.info(f"{len(itemlist_data)} rows are in the current itemlist")
-
-        try:
-            for row in itemlist_data:
-                if row["name"] in metadata_mapping:
-                    row["match_result"] = "Match"
-                    matched_metadata = metadata_mapping[row["name"]]
-                    for col in s.COLS_FOR_COPY:
-                        if (
-                            col in matched_metadata
-                        ):  # Ensure the column exists in the metadata
-                            row[col] = matched_metadata[col]
-                else:
-                    row["match_result"] = "No Match"
+    try:
+        for row in itemlist_data:
+            row["InputFileName"] = row[
+                "name"
+            ]  ## Need this alias for the schema to validate
+            if row["name"] in metadata_mapping:
+                row["match_result"] = "Match"
+                matched_metadata = metadata_mapping[row["name"]]
+                for col in s.COLS_FOR_COPY:
+                    if (
+                        col in matched_metadata
+                    ):  # Ensure the column exists in the metadata
+                        row[col] = matched_metadata[col]
+            else:
+                row["match_result"] = (
+                    "No Match"  # if nometa_button or updateItemStatus:
+                )
+            validator = Draft7Validator(s.SCHEMA)
+            if validator.is_valid(row):
                 row["valid"] = True
+            else:
+                row["valid"] = False
+                error_list = validator.iter_errors(row)
+                for e in error_list:
+                    print(e)
+                # print(error_list)
 
-            return itemlist_data, "merged-data"
-        except Exception as e:
-            print("Something broke:", e)
-            return None, "slides-for-deid"
+        return itemlist_data, "merged-data"
+    except Exception as e:
+        print("Something broke:", e)
+
     return None, "slides-for-deid"
 
 
