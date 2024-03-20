@@ -125,6 +125,7 @@ def process_row(row, COLS_FOR_COPY, metadataDict):
         Approved and the Original folders, we need to check if any of the resources are in the 
         Original folder first."""
         status = []
+        paths = []
 
         for p in resource_paths:
             if p.startswith("/collection/WSI DeID/Approved"):
@@ -135,14 +136,22 @@ def process_row(row, COLS_FOR_COPY, metadataDict):
                 status.append("AvailableToProcess Folder")
             elif p.startswith("/collection/WSI DeID/Original"):
                 status.append("In Original Folder")
+            else:
+                continue
+
+            paths.append(p)
 
         if status:
             if "In Original Folder" in status:
+                idx = status.index("In Original Folder")
+                row["curDsaPath"] = paths[idx]
                 row["deidStatus"] = "In Original Folder"
             else:
                 row["deidStatus"] = status[0]
+                row["curDsaPath"] = paths[0]
         else:
             row["deidStatus"] = None
+            row["curDsaPath"] = None
 
     if validator.is_valid(row):
         row["valid"] = "Es Bueno"
