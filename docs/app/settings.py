@@ -72,12 +72,47 @@ MERGED_COL_DEFS = [
         "tooltipField": "match_result",
         "headerName": "Match Result",
         "width": 150,
+        "editable": False,
     },
-    {"field": "deidStatus", "width": 150},
-    {"field": "name", "header": "fileName", "tooltipField": "name"},
-    {"field": "OutputFileName", "tooltipField": "OutputFileName", "width": 300},
-    {"field": "curDsaPath", "tooltipField": "curDsaPath", "width": 450},
-    {"field": "size", "header": "File Size", "width": 160},
+    {
+        "field": "deidStatus",
+        "width": 150,
+        "editable": False,
+        "cellStyle": {
+            "styleConditions": [
+                {
+                    "condition": 'params.value == "AvailableToProcess Folder"',
+                    "style": {"backgroundColor": "#FFFD73"},
+                },
+                {
+                    "condition": 'params.value == "In Redacted Folder"',
+                    "style": {"backgroundColor": "#FFE073"},
+                },
+                {
+                    "condition": 'params.value == "In Approved Status"',
+                    "style": {"backgroundColor": "#9DFF73"},
+                },
+                {
+                    "condition": 'params.value == "In Original Folder"',
+                    "style": {"backgroundColor": "#0CFE00"},
+                },
+            ]
+        },
+    },
+    {"field": "name", "header": "fileName", "tooltipField": "name", "editable": False},
+    {
+        "field": "OutputFileName",
+        "tooltipField": "OutputFileName",
+        "width": 300,
+        "editable": False,
+    },
+    {
+        "field": "curDsaPath",
+        "tooltipField": "curDsaPath",
+        "width": 450,
+        "editable": False,
+    },
+    {"field": "size", "header": "File Size", "width": 160, "editable": False},
     {"field": "SampleID"},
     {"field": "REPOSITORY"},
     {"field": "STUDY"},

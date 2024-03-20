@@ -69,7 +69,8 @@ app.layout = dmc.NotificationsProvider(
             ),
             # modal_tree,
             dsa_login_panel,
-            dcc.Store(id="itemList_store", data=s.defaultItemList),
+            # dcc.Store(id="itemList_store", data=s.defaultItemList),
+            dcc.Store(id="itemList_store", data=[]),
             dcc.Store(id="metadata_store"),
             dcc.Store(id="mergedItem_store"),
             html.Div(id="notifications-container"),
@@ -118,27 +119,35 @@ def process_row(row, COLS_FOR_COPY, metadataDict):
     else:
         row["OutputFileName"] = os.path.splitext(row["name"])[0] + ".deid.svs"
 
-        deidFileStatus = checkForExistingFile(row["OutputFileName"])
-        row["curDsaPath"] = deidFileStatus
-        ## #Process / update DEID status here as well
-        curDsaPath = row.get("curDsaPath", None)
-        # print(curDsaPath)
-        if curDsaPath:
-            if curDsaPath.startswith("/collection/WSI DeID/Approved"):
-                row["deidStatus"] = "In Approved Status"
+        resource_paths = checkForExistingFile(row["OutputFileName"])
 
-            elif curDsaPath.startswith("/collection/WSI DeID/Redacted"):
-                row["deidStatus"] = "In Redacted Folder"
+        """Some extra logic, since an image can exist in two locations of interest, mainly the 
+        Approved and the Original folders, we need to check if any of the resources are in the 
+        Original folder first."""
+        status = []
 
-            elif curDsaPath.startswith("/collection/WSI DeID/AvailableToProcess"):
-                row["deidStatus"] = "AvailableToProcess Folder"
+        for p in resource_paths:
+            if p.startswith("/collection/WSI DeID/Approved"):
+                status.append("In Approved Status")
+            elif p.startswith("/collection/WSI DeID/Redacted"):
+                status.append("In Redacted Folder")
+            elif p.startswith("/collection/WSI DeID/AvailableToProcess"):
+                status.append("AvailableToProcess Folder")
+            elif p.startswith("/collection/WSI DeID/Original"):
+                status.append("In Original Folder")
+
+        if status:
+            if "In Original Folder" in status:
+                row["deidStatus"] = "In Original Folder"
+            else:
+                row["deidStatus"] = status[0]
+        else:
+            row["deidStatus"] = None
 
     if validator.is_valid(row):
-        # print(row, "was validated??")
         row["valid"] = "Es Bueno"
     else:
         row["valid"] = "Es Malo"
-        # print("Row was not valid:", row)
 
     return row
 

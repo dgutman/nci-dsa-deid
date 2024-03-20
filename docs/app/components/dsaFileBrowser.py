@@ -2,7 +2,6 @@
 
 import dash_bootstrap_components as dbc
 from dash import html
-import girder_client
 from dash import (
     dcc,
     html,
@@ -17,14 +16,9 @@ from dash import (
 )
 import dash_bootstrap_components as dbc
 from dash_iconify import DashIconify
-import girder_client, json
+import json
 import dash_mantine_components as dmc
-import settings as s
 import dash_ag_grid as dag
-import dash
-
-# # Replace with the base URL of  the DSA
-# gc = girder_client.GirderClient(apiUrl=s.DSA_BASE_URL)
 from settings import gc
 
 collections = gc.get("collection")
@@ -36,7 +30,6 @@ folder_cache = {}
 
 for c in collections:
     folder_cache[c["_id"]] = c["name"]
-    # print(c["name"])
 
 # ## To simplify the logic, I am going to pre-Cache the collection Name as well as the
 # ## First set of subfolders, as they require a different girder call to the getFolder
@@ -105,7 +98,7 @@ def get_folder_name(folder_id, level=2):
         folder_cache[folder_id] = folder_name
         return folder_name
     except:
-        print(f"Failed to fetch folder name for id: {folder_id}")
+        # print(f"Failed to fetch folder name for id: {folder_id}")
         return None
 
 
@@ -294,7 +287,7 @@ def update_folder_styles_and_icons(n_clicks, folder_id, last_clicked_folder_data
     icon = DashIconify(icon="material-symbols:folder", width=20)
     style = {"color": "blue"}
     button_label = folder_cache[folder_id["id"]]  # None  # Initialize the button label
-    # print(n_clicks, folder_id)
+
     if n_clicks % 2 == 1:  # folder was expanded
         level = folder_id["level"]
         # Fetch item count for the clicked folder
@@ -378,7 +371,7 @@ def dumpItemList(itemList):
 def update_last_clicked_folder(n_clicks, folder_ids):
     # Extract the folder ID from the callback context to find which folder was clicked
     ctx = callback_context
-    print("Context was", ctx.triggered_id)
+    # print("Context was", ctx.triggered_id)
 
     try:
         triggered_id = json.loads(
@@ -387,9 +380,9 @@ def update_last_clicked_folder(n_clicks, folder_ids):
         return (triggered_id,)
     except json.JSONDecodeError:
 
-        print(
-            f"In dfb update_last_clicked Failed to parse JSON from: {callback_context.triggered[0]['prop_id'].split('.')[0]}"
-        )
+        # print(
+        #     f"In dfb update_last_clicked Failed to parse JSON from: {callback_context.triggered[0]['prop_id'].split('.')[0]}"
+        # )
         return (no_update,)  # or some other appropriate default value or behavior
     return no_update
 
@@ -402,19 +395,19 @@ def update_last_clicked_folder(n_clicks, folder_ids):
     prevent_initial_call=True,
 )
 def update_recently_clicked_folder(n_clicks, folder_id):
-    print(folder_id, "triggered this callback this time")
-    print(n_clicks, "are the n_clicks data")
+    # print(folder_id, "triggered this callback this time")
+    # print(n_clicks, "are the n_clicks data")
 
     trigger = callback_context.triggered[0]
-    print(folder_id, n_clicks, trigger)
-    print(trigger, "is the triger...")
+    # print(folder_id, n_clicks, trigger)
+    # print(trigger, "is the triger...")
     prop_id_string = trigger["prop_id"].rsplit(".", 1)[0]
     try:
         prop_id_dict = json.loads(prop_id_string)
     except json.JSONDecodeError:
-        print(
-            f"update_recently_flicked_folder Failed.. DEBUG! Failed to parse JSON from: {prop_id_string}"
-        )
+        # print(
+        #     f"update_recently_flicked_folder Failed.. DEBUG! Failed to parse JSON from: {prop_id_string}"
+        # )
         return no_update  # or some other appropriate default value or behavior
 
     # Now you can extract the desired values from the dictionary
@@ -426,7 +419,6 @@ def update_recently_clicked_folder(n_clicks, folder_id):
     ## This logic may not always work ... if the folder has subfolders
     if level == 2 and trigger["value"] > 0:
         itemListInfoData = list(gc.listItem(folder_id))
-        # print(itemListInfo)
         return itemListInfoData
 
     return no_update  ### if there's an error?

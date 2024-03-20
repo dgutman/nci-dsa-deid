@@ -21,19 +21,17 @@ def checkForExistingFile(deidOutputFileName):
     ## filename on the DSA and returns a path to where the file is located
     ## Dependinog on the path, we can then trigger other options..
 
-    searchStatus = lookupDSAresource(deidOutputFileName)
+    items = lookupDSAresource(deidOutputFileName, limit=0)
 
-    if searchStatus:
-        try:
-            itemId = searchStatus["item"][0]["_id"]
+    if items:
+        # Get all the resources that match the search.
+        resource_paths = [
+            gc.get(f"resource/{item['_id']}/path?type=item") for item in items["item"]
+        ]
 
-            resourcePath = gc.get(f"resource/{itemId}/path?type=item")
-            if resourcePath:
-                return resourcePath
-        except:
-            pass
+        return resource_paths
 
-    return None
+    return []
 
 
 checklist = html.Div(
@@ -122,7 +120,7 @@ def disable_button(n_clicks, button_data):
     return button_data, True
 
 
-def lookupDSAresource(textPrefix, types=["item"], mode="prefix", limit=1):
+def lookupDSAresource(textPrefix, mode="prefix", limit=1):
     """This will use the girder_client to look for filenames in the DSA.  The app does not
     currently allow duplicate files to be created during the deID process.. this would make it extremely confusing
     to figure out what has and has not been deidentified"""
@@ -246,14 +244,16 @@ def updateMergedDatatable(mergeddata):
                         "styleConditions": [
                             {
                                 "condition": "params.value == 'NoMeta'",
-                                "style": {"backgroundColor": "orange"},
+                                # "style": {"backgroundColor": "orange"},
+                                "style": {"fontWeight": "bold", "color": "red"},
                             },
                             {
                                 "condition": "params.value == 'Match'",
-                                "style": {
-                                    "backgroundColor": "purple",
-                                    "color": "white",
-                                },
+                                # "style": {
+                                #     "backgroundColor": "purple",
+                                #     "color": "white",
+                                # },
+                                "style": {"fontWeight": "bold", "color": "green"},
                             },
                             {
                                 "condition": "params.colDef.headerName == 'Make'",
@@ -270,6 +270,7 @@ def updateMergedDatatable(mergeddata):
                     "toolTipShowDelay": 0.2,
                     "rowSelection": "single",
                     "rowHeight": 20,
+                    "enableCellTextSelection": True,
                 },
             ),
         ]
