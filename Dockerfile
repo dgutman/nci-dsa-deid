@@ -4,7 +4,8 @@ ENV PYTHONUNBUFFERED True
 
 WORKDIR /app
 
-COPY requirements.txt /app
+# COPY requirements.txt /app
+COPY /docs/app/ /app/
 
 RUN pip install --upgrade pip
 
@@ -14,8 +15,4 @@ RUN apt-get update
 
 RUN apt-get install libdmtx0b
 
-# CMD python app.py
-#CMD bash
-
-
-ENTRYPOINT [ "python","app.py"]
+CMD python app.py

@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 SCHEMA_FILE = "importManifestSchema.json"
 TEST_MODE = False
 TEST_FILENAME = "exampleData_112322.csv"
-DSA_BASE_URL = "https://wsi-deid.pathology.emory.edu/api/v1"
 # TEST_FOLDERID = "6477c00e309a9ffde6689635"
 
 TEST_FOLDERID = "64da4e64309a9ffde668b9e6"  ## VISUM FOLDER
@@ -18,13 +17,12 @@ DSA_UNFILED_FOLDER = (
 
 DSA_LOGIN_SUCCESS = False
 
-## During debugging, I am going to get a default item list so I don't have to keep clicking
+load_dotenv(".env", override=True)
+DSAKEY = os.getenv("DSAKEY")
+DSA_BASE_URL = os.getenv("DSA_API_URL")
 gc = girder_client.GirderClient(apiUrl=DSA_BASE_URL)
 
 defaultItemList = list(gc.listItem(TEST_FOLDERID))
-
-load_dotenv(".env", override=True)
-DSAKEY = os.getenv("DSAKEY")
 
 if DSAKEY:
     gc.authenticate(apiKey=DSAKEY)
