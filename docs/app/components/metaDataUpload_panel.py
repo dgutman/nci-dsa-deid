@@ -37,6 +37,7 @@ metadata_upload_layout = dbc.Container(
     Input("upload-data", "contents"),
     State("upload-data", "filename"),
     State("upload-data", "last_modified"),
+    prevent_initial_call=True,
 )
 def update_output(file_content, file_name, file_upload_date):
     if s.TEST_MODE:
@@ -48,6 +49,7 @@ def update_output(file_content, file_name, file_upload_date):
 
     ### TO DO:  Handle exception better, may want to use the mantine_notification provider
     valid_extensions = ("csv", "xlsx")
+
     if file_name.endswith(valid_extensions):
         print("Valid extension found")
     else:

@@ -20,18 +20,28 @@ def checkForExistingFile(deidOutputFileName):
     ## or it would be extremely difficult to figure out which version is which.. this looks for the
     ## filename on the DSA and returns a path to where the file is located
     ## Dependinog on the path, we can then trigger other options..
+    folders = (
+        "/collection/WSI DeID/Approved",
+        "/collection/WSI DeID/Redacted",
+        "/collection/WSI DeID/AvailableToProcess",
+    )
 
-    items = lookupDSAresource(deidOutputFileName, limit=0)
+    searchStatus = lookupDSAresource(deidOutputFileName, limit=0)
 
-    if items:
-        # Get all the resources that match the search.
-        resource_paths = [
-            gc.get(f"resource/{item['_id']}/path?type=item") for item in items["item"]
-        ]
+    if searchStatus:
+        for item in searchStatus.get("item", []):
+            resourcePath = gc.get(f"resource/{item['_id']}/path?type=item")
 
-        return resource_paths
+            if (
+                deidOutputFileName
+                == "TCGA-08-0509-01A-01-TS1.27f6ae4c-e445-4e2e-a94b-31d449ba69c9.deid.svs"
+            ):
+                print(resourcePath)
 
-    return []
+            if resourcePath.startswith((folders)):
+                return resourcePath
+
+    return None
 
 
 checklist = html.Div(
@@ -48,7 +58,8 @@ checklist = html.Div(
             # value=[1],
             id="deid-flag-inputs",
         ),
-    ]
+    ],
+    style={"display": "none"},
 )
 
 
@@ -294,18 +305,15 @@ def updateMergedDatatable(mergeddata):
     prevent_initial_call=True,
 )
 def submit_for_deid(n_clicks, data, deidFlags, metadataList):
-    print("HELLO CRUEL WORLD???")
     if not n_clicks or not data:
         raise PreventUpdate
 
     ## Need to turn this into an array it it's null
     if not deidFlags:
         deidFlags = []
-    print(len(data), "elements were received for processing")
     for row in data:
-        # print(row)
         curDsaPath = row.get("curDsaPath", None)
-        # print(curDsaPath,row)
+
         if curDsaPath:
             if curDsaPath.startswith("/collection/WSI DeID/Approved"):
                 row["deidStatus"] = "In Approved Status"

@@ -28,19 +28,16 @@ from components.instructionPanel import instructions_tab
 from components.metaDataUpload_panel import metadata_upload_layout
 from components.merged_dataview_panel import merged_data_panel, checkForExistingFile
 
-
 external_stylesheets = [
     "https://codepen.io/chriddyp/pen/bWLwgP.css",
     dbc.themes.BOOTSTRAP,
 ]
-
 
 app = Dash(
     __name__,
     external_stylesheets=external_stylesheets,
     suppress_callback_exceptions=True,
 )
-
 
 tabs = dbc.Tabs(
     [
@@ -54,22 +51,21 @@ tabs = dbc.Tabs(
     id="main-tabs",
 )
 
-
 app.layout = dmc.NotificationsProvider(
     html.Div(
         [
             html.Script(src="/assets/customRenderer.js"),
-            html.Div(
-                id={"type": "selected-folder", "id": "TBD", "level": 0},
-                style={
-                    "font-size": "20px",
-                    "font-weight": "bold",
-                    "margin-bottom": "20px",
-                },
-            ),
+            # html.Div(
+            #     id={"type": "selected-folder", "id": "TBD", "level": 0},
+            #     style={
+            #         "font-size": "20px",
+            #         "font-weight": "bold",
+            #         "margin-bottom": "20px",
+            #     },
+            # ),
             # modal_tree,
             dsa_login_panel,
-            # dcc.Store(id="itemList_store", data=s.defaultItemList),
+            # dcc.Store(id="itemList_store", data=s.defaultItemList),  # Debugging
             dcc.Store(id="itemList_store", data=[]),
             dcc.Store(id="metadata_store"),
             dcc.Store(id="mergedItem_store"),
@@ -119,39 +115,57 @@ def process_row(row, COLS_FOR_COPY, metadataDict):
     else:
         row["OutputFileName"] = os.path.splitext(row["name"])[0] + ".deid.svs"
 
-        resource_paths = checkForExistingFile(row["OutputFileName"])
+        deidFileStatus = checkForExistingFile(row["OutputFileName"])
+        # row["curDsaPath"] = deidFileStatus
+        # ## #Process / update DEID status here as well
+        # curDsaPath = row.get("curDsaPath", None)
+        # print(curDsaPath)
+        if deidFileStatus:
+            if deidFileStatus.startswith("/collection/WSI DeID/Approved"):
+                row["deidStatus"] = "In Approved Status"
 
-        """Some extra logic, since an image can exist in two locations of interest, mainly the 
-        Approved and the Original folders, we need to check if any of the resources are in the 
-        Original folder first."""
-        status = []
-        paths = []
+            elif deidFileStatus.startswith("/collection/WSI DeID/Redacted"):
+                row["deidStatus"] = "In Redacted Folder"
 
-        for p in resource_paths:
-            if p.startswith("/collection/WSI DeID/Approved"):
-                status.append("In Approved Status")
-            elif p.startswith("/collection/WSI DeID/Redacted"):
-                status.append("In Redacted Folder")
-            elif p.startswith("/collection/WSI DeID/AvailableToProcess"):
-                status.append("AvailableToProcess Folder")
-            elif p.startswith("/collection/WSI DeID/Original"):
-                status.append("In Original Folder")
-            else:
-                continue
+            elif deidFileStatus.startswith("/collection/WSI DeID/AvailableToProcess"):
+                row["deidStatus"] = "AvailableToProcess Folder"
 
-            paths.append(p)
+            if "deidStatus" in row:
+                row["curDsaPath"] = deidFileStatus
 
-        if status:
-            if "In Original Folder" in status:
-                idx = status.index("In Original Folder")
-                row["curDsaPath"] = paths[idx]
-                row["deidStatus"] = "In Original Folder"
-            else:
-                row["deidStatus"] = status[0]
-                row["curDsaPath"] = paths[0]
-        else:
-            row["deidStatus"] = None
-            row["curDsaPath"] = None
+        # resource_paths = checkForExistingFile(row["OutputFileName"])
+
+        # """Some extra logic, since an image can exist in two locations of interest, mainly the
+        # Approved and the Original folders, we need to check if any of the resources are in the
+        # Original folder first."""
+        # status = []
+        # paths = []
+
+        # for p in resource_paths:
+        #     if p.startswith("/collection/WSI DeID/Approved"):
+        #         status.append("In Approved Status")
+        #     elif p.startswith("/collection/WSI DeID/Redacted"):
+        #         status.append("In Redacted Folder")
+        #     elif p.startswith("/collection/WSI DeID/AvailableToProcess"):
+        #         status.append("AvailableToProcess Folder")
+        #     elif p.startswith("/collection/WSI DeID/Original"):
+        #         status.append("In Original Folder")
+        #     else:
+        #         continue
+
+        #     paths.append(p)
+
+        # if status:
+        #     if "In Original Folder" in status:
+        #         idx = status.index("In Original Folder")
+        #         row["curDsaPath"] = paths[idx]
+        #         row["deidStatus"] = "In Original Folder"
+        #     else:
+        #         row["deidStatus"] = status[0]
+        #         row["curDsaPath"] = paths[0]
+        # else:
+        #     row["deidStatus"] = None
+        #     row["curDsaPath"] = None
 
     if validator.is_valid(row):
         row["valid"] = "Es Bueno"

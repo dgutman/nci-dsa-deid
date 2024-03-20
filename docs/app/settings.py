@@ -3,7 +3,7 @@ import logging
 from dotenv import load_dotenv
 
 SCHEMA_FILE = "importManifestSchema.json"
-TEST_MODE = True
+TEST_MODE = False
 TEST_FILENAME = "exampleData_112322.csv"
 DSA_BASE_URL = "https://wsi-deid.pathology.emory.edu/api/v1"
 # TEST_FOLDERID = "6477c00e309a9ffde6689635"
@@ -25,15 +25,13 @@ defaultItemList = list(gc.listItem(TEST_FOLDERID))
 
 load_dotenv(".env", override=True)
 DSAKEY = os.getenv("DSAKEY")
-# DSAKEY = None
 
 if DSAKEY:
     gc.authenticate(apiKey=DSAKEY)
     DSA_LOGIN_SUCCESS = True
     print("App has logged into the DSA")
 
-
-# Set up logging
+# Set up logging.
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
