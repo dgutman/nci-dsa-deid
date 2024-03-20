@@ -6,17 +6,21 @@ import PIL, os
 
 keysForBarcode = ["ASSAY", "BLOCK", "CASE", "INDEX", "PROJECT", "REPOSITORY", "STUDY"]
 
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
 logoImageFile = "/opt/nci-dsa-deid/nci_dsa_deid/NCI-logo-300x165.jpg"
+
+logoImageFile="/opt/nci-dsa-deid/nci_dsa_deid/NCI-logo-300x165.jpg"
+fontFile = "/opt/nci-dsa-deid/nci_dsa_deid/DejaVuSansMono.ttf"
 
 if os.path.isfile(logoImageFile):
     pass
 else:
     logoImageFile = "./NCI-logo-300x165.jpg"
     ## During local testing the /opt path does not exist, so using local path
+
+if os.path.isfile(fontFile):
+    pass
+else:
+    fontFile = "./DejaVuSansMono.ttf"
 
 
 def split_into_chunks(s, max_length=40):
@@ -77,7 +81,7 @@ def add_barcode_to_image(
     total_textH = 0
     for line in title_lines:
         fontSize, textW, textH, imageDrawFont = computeFontSize(
-            targetW, 0.15, line, fontFile="./DejaVuSansMono.ttf"
+            targetW, 0.15, line, fontFile=fontFile
         )
         max_textW = max(max_textW, textW)
         total_textH += textH
@@ -219,13 +223,14 @@ def encode_barcode_string(item, keys_to_encode):
     return barcodeText[:-1]  ## Strip off the final |
 
 
+
 def computeFontSize(
     targetW,
     fontSize,
     title,
     mode="RGB",
     minWidth=384,
-    fontFile="DejaVuSansMono.ttf",
+    fontFile=fontFile,
     defaultFontSizeValue=8,
 ):
     ### Want to compute the biggest font that will fit in the allocated space for readbility
@@ -233,7 +238,7 @@ def computeFontSize(
     # Build an empty image
     img = Image.new(mode, (minWidth, minWidth))
     imageDraw = ImageDraw.Draw(img)
-
+    id = ImageDraw.Draw(img)
     for iter in range(3, 0, -1):
         try:
             imageDrawFont = ImageFont.truetype(
@@ -245,8 +250,10 @@ def computeFontSize(
                 imageDrawFont = PIL.ImageFont.truetype(size=int(fontSize * targetW))
             except IOError:
                 imageDrawFont = PIL.ImageFont.load_default()
-        textW, textH = imageDraw.textsize(title, imageDrawFont)
-
+         
+        textL, textT, textR, textB = imageDrawFont.getbbox(title)
+        textW = textR - textL
+        textH = abs(textB - textT)
         if textW == 0 or not textW:
             # Either skip the calculation or set a default value for fontSize
             textW = 0.2  # set this to a reasonable default
