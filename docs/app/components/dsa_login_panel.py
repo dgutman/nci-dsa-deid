@@ -1,5 +1,5 @@
 import dash
-from dash import dcc, html, callback, Input, Output, State
+from dash import dcc, html, callback, Input, Output, State, no_update
 import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify
@@ -74,7 +74,7 @@ dsa_login_panel = dmc.Grid(
                 variant="filled",
                 color="green",
                 id="login-logout-button",
-                style={"marginRight": "30px"},
+                style={"marginRight": "30px", "display": "none"},
             ),
             span=2,
             style={"display": "flex", "justifyContent": "flex-end"},
@@ -84,16 +84,16 @@ dsa_login_panel = dmc.Grid(
     justify="end",
 )
 
-loginSuccess = dmc.Notification(
-    title="Login Status",
-    id="login-success-notification",
-    action="show",
-    message="Login was successful",
-    icon=DashIconify(icon="ic:round-celebration"),
-)
+# loginSuccess = dmc.Notification(
+#     title="Login Status",
+#     id="login-success-notification",
+#     action="show",
+#     message="Login was successful",
+#     icon=DashIconify(icon="ic:round-celebration"),
+# )
 
 dsa_login_panel = dbc.Container(
-    [dsa_login_panel, login_state, loginSuccess],
+    [dsa_login_panel, login_state],
     fluid=True,
     style={"padding-top": "20px"},
 )
@@ -118,6 +118,7 @@ dsa_login_panel = dbc.Container(
         State("login-state", "data"),
         State("login-modal", "is_open"),
     ],
+    # prevent_initial_call=True,
 )
 def login_logout(
     n_clicks_login,
@@ -128,6 +129,25 @@ def login_logout(
     login_state,
     is_open,
 ):
+    if s.DSA_LOGIN_SUCCESS:
+        # Get the username.
+        tokenOwner = s.gc.get("user/me")["login"]
+        return (
+            {"logged_in": True, "username": tokenOwner},
+            "Logout",
+            f"Logged in as: {tokenOwner}",
+            False,
+            "",
+        )
+    else:
+        return (
+            {"logged_in": False, "username": False},
+            "Login",
+            "Logged out",
+            False,
+            "",
+        )
+
     ctx = dash.callback_context
     if not ctx.triggered:
         if s.DSAKEY:

@@ -2,45 +2,31 @@
 import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
 from jsonschema import Draft7Validator
-import datetime, os
-
-from dash import (
-    Dash,
-    State,
-    callback,
-    callback_context,
-    dcc,
-    Input,
-    Output,
-    State,
-    html,
-)
-
-
+import datetime
+from dash_iconify import DashIconify
 from concurrent.futures import ThreadPoolExecutor
-
 import settings as s
+from dash import Dash, State, callback, dcc, Input, Output, State, html, no_update
 
-# Local modules and panels
+import os
+from os import getenv
+
 from components.dsaFileBrowser import slideListTab_content
 from components.dsa_login_panel import dsa_login_panel
 from components.instructionPanel import instructions_tab
 from components.metaDataUpload_panel import metadata_upload_layout
 from components.merged_dataview_panel import merged_data_panel, checkForExistingFile
 
-
 external_stylesheets = [
     "https://codepen.io/chriddyp/pen/bWLwgP.css",
     dbc.themes.BOOTSTRAP,
 ]
-
 
 app = Dash(
     __name__,
     external_stylesheets=external_stylesheets,
     suppress_callback_exceptions=True,
 )
-
 
 tabs = dbc.Tabs(
     [
@@ -54,22 +40,22 @@ tabs = dbc.Tabs(
     id="main-tabs",
 )
 
-
 app.layout = dmc.NotificationsProvider(
     html.Div(
         [
             html.Script(src="/assets/customRenderer.js"),
-            html.Div(
-                id={"type": "selected-folder", "id": "TBD", "level": 0},
-                style={
-                    "font-size": "20px",
-                    "font-weight": "bold",
-                    "margin-bottom": "20px",
-                },
-            ),
+            # html.Div(
+            #     id={"type": "selected-folder", "id": "TBD", "level": 0},
+            #     style={
+            #         "font-size": "20px",
+            #         "font-weight": "bold",
+            #         "margin-bottom": "20px",
+            #     },
+            # ),
             # modal_tree,
             dsa_login_panel,
-            dcc.Store(id="itemList_store", data=s.defaultItemList),
+            # dcc.Store(id="itemList_store", data=s.defaultItemList),  # Debugging
+            dcc.Store(id="itemList_store", data=[]),
             dcc.Store(id="metadata_store"),
             dcc.Store(id="mergedItem_store"),
             html.Div(id="notifications-container"),
@@ -119,26 +105,24 @@ def process_row(row, COLS_FOR_COPY, metadataDict):
         row["OutputFileName"] = os.path.splitext(row["name"])[0] + ".deid.svs"
 
         deidFileStatus = checkForExistingFile(row["OutputFileName"])
-        row["curDsaPath"] = deidFileStatus
-        ## #Process / update DEID status here as well
-        curDsaPath = row.get("curDsaPath", None)
-        # print(curDsaPath)
-        if curDsaPath:
-            if curDsaPath.startswith("/collection/WSI DeID/Approved"):
+
+        if deidFileStatus:
+            if deidFileStatus.startswith("/collection/WSI DeID/Approved"):
                 row["deidStatus"] = "In Approved Status"
 
-            elif curDsaPath.startswith("/collection/WSI DeID/Redacted"):
+            elif deidFileStatus.startswith("/collection/WSI DeID/Redacted"):
                 row["deidStatus"] = "In Redacted Folder"
 
-            elif curDsaPath.startswith("/collection/WSI DeID/AvailableToProcess"):
+            elif deidFileStatus.startswith("/collection/WSI DeID/AvailableToProcess"):
                 row["deidStatus"] = "AvailableToProcess Folder"
 
+            if "deidStatus" in row:
+                row["curDsaPath"] = deidFileStatus
+
     if validator.is_valid(row):
-        # print(row, "was validated??")
         row["valid"] = "Es Bueno"
     else:
         row["valid"] = "Es Malo"
-        # print("Row was not valid:", row)
 
     return row
 
@@ -147,25 +131,44 @@ def process_row(row, COLS_FOR_COPY, metadataDict):
     [
         Output("mergedItem_store", "data"),
         Output("main-tabs", "active_tab"),  # Add this line
+        Output("notifications-container", "children", allow_duplicate=True),
     ],
     Input("check-match-button", "n_clicks"),
+    Input("validate-deid-status-button", "n_clicks"),
     State("metadata_store", "data"),
     State("itemList_store", "data"),
-    State("deid-flag-inputs", "value"),
-    Input("validate-deid-status-button", "n_clicks"),
     prevent_initial_call=True,
 )
 def check_name_matches(
     checkmatch_clicks,
+    updateItemStatus,
     metadata,
     itemlist_data,
-    deidFlags,
-    updateItemStatus,
 ):
-    ## Should be based on the context... need to debug
-    ## Really need to get the context here in the future??
-    # print(deidFlags)
-    ctx = callback_context
+    if itemlist_data is None or not len(itemlist_data):
+        return (
+            no_update,
+            no_update,
+            dmc.Notification(
+                title="Warning",
+                action="show",
+                id="simple-notify",
+                message="Please choose a folder with images.",
+                icon=DashIconify(icon="ic:round-celebration"),
+            ),
+        )
+    elif metadata is None or not len(metadata):
+        return (
+            no_update,
+            no_update,
+            dmc.Notification(
+                title="Warning",
+                action="show",
+                id="simple-notify",
+                message="Please upload a metadata file.",
+                icon=DashIconify(icon="ic:round-celebration"),
+            ),
+        )
 
     s.logger.info(f"{len(metadata)} rows are in the metadata table")
     s.logger.info(f"{len(itemlist_data)} rows are in the current itemlist")
@@ -174,8 +177,6 @@ def check_name_matches(
         metadata_mapping = {row["InputFileName"]: row for row in metadata}
     else:
         metadata_mapping = {}
-
-    print(ctx.triggered_id, "was the triggered id")
 
     with ThreadPoolExecutor() as executor:
         results = list(
@@ -188,14 +189,12 @@ def check_name_matches(
             )
         )
 
-    if ctx.triggered_id == "validate-deid-status-button":
-        return results, "merged-data"
-    else:
-        return results, "merged-data"
+    return results, "merged-data", no_update
 
 
 if __name__ == "__main__":
     ## Clear the log between restarts
     with open(s.log_filename, "w"):
         pass
-    app.run(debug=True, host="0.0.0.0")
+
+    app.run_server(debug=False, host="0.0.0.0")

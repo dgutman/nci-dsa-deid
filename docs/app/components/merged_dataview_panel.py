@@ -1,18 +1,28 @@
-from dash import callback, State, dcc, Output, Input, html
 import dash_bootstrap_components as dbc
-from dash.exceptions import PreventUpdate
-
-import io, base64, dash, json, girder_client
-from pprint import pprint
+from dash_iconify import DashIconify
+import dash_mantine_components as dmc
+import json, girder_client
 import dash_ag_grid as dag
 from settings import gc
-from concurrent.futures import ThreadPoolExecutor
 import json
 import settings as s
+
+from dash import callback, State, dcc, Output, Input, html, no_update
+from dash.exceptions import PreventUpdate
+
 import utils.barcodeHelpers as bch
 import utils.deidHelpers as hlprs
 
+
 ## Trying to add diskcache functionality
+def lookupDSAresource(textPrefix, mode="prefix", limit=1):
+    """This will use the girder_client to look for filenames in the DSA.  The app does not
+    currently allow duplicate files to be created during the deID process.. this would make it extremely confusing
+    to figure out what has and has not been deidentified"""
+    searchOutput = gc.get(
+        f'resource/search?q={textPrefix}&mode={mode}&limit={limit}&types=["item"]'
+    )
+    return searchOutput
 
 
 def checkForExistingFile(deidOutputFileName):
@@ -20,18 +30,26 @@ def checkForExistingFile(deidOutputFileName):
     ## or it would be extremely difficult to figure out which version is which.. this looks for the
     ## filename on the DSA and returns a path to where the file is located
     ## Dependinog on the path, we can then trigger other options..
+    folders = (
+        "/collection/WSI DeID/Approved",
+        "/collection/WSI DeID/Redacted",
+        "/collection/WSI DeID/AvailableToProcess",
+    )
 
-    searchStatus = lookupDSAresource(deidOutputFileName)
+    searchStatus = lookupDSAresource(deidOutputFileName, limit=0)
 
     if searchStatus:
-        try:
-            itemId = searchStatus["item"][0]["_id"]
+        for item in searchStatus.get("item", []):
+            resourcePath = gc.get(f"resource/{item['_id']}/path?type=item")
 
-            resourcePath = gc.get(f"resource/{itemId}/path?type=item")
-            if resourcePath:
+            if (
+                deidOutputFileName
+                == "TCGA-08-0509-01A-01-TS1.27f6ae4c-e445-4e2e-a94b-31d449ba69c9.deid.svs"
+            ):
+                print(resourcePath)
+
+            if resourcePath.startswith((folders)):
                 return resourcePath
-        except:
-            pass
 
     return None
 
@@ -47,10 +65,10 @@ checklist = html.Div(
                 },
                 {"label": "BruteForce Redacted", "value": "batchSubmit_redacted"},
             ],
-            # value=[1],
             id="deid-flag-inputs",
         ),
-    ]
+    ],
+    style={"display": "none"},
 )
 
 
@@ -122,43 +140,27 @@ def disable_button(n_clicks, button_data):
     return button_data, True
 
 
-def lookupDSAresource(textPrefix, types=["item"], mode="prefix", limit=1):
-    """This will use the girder_client to look for filenames in the DSA.  The app does not
-    currently allow duplicate files to be created during the deID process.. this would make it extremely confusing
-    to figure out what has and has not been deidentified"""
-    searchOutput = gc.get(
-        f'resource/search?q={textPrefix}&mode={mode}&limit={limit}&types=["item"]'
-    )
-    return searchOutput
-
-
-## This is the folder things get filed into when they are unfiled/available to process..
-unfiledFolder = gc.get(f"resource/lookup?path=/collection{s.DSA_UNFILED_FOLDER}")
-
-
-def processImageSet(rows):
-    """Note Rows vs row... this will process an entire set of rows, and move multiple images"""
+# ## This is the folder things get filed into when they are unfiled/available to process.
+# if s.DSA_UNFILED_FOLDER:
+#     # First create the folder if it does not exist, this also gets it.
+#     unfiledFolder = gc.get(f"resource/lookup?path=/collection{s.DSA_UNFILED_FOLDER}")
 
 
 ## TO DO.. ADD MORE LOGIC HERE
 def submitImageForDeId(row):
     # Your logic for submitting the image for DeID goes here
     ## So check if file is already un the unfiled Directory.. if so just use that..
-    print("Processing", row)
-    try:
-        unfiledItemList = list(gc.listItem(unfiledFolder["_id"]))
-    except:
-        print("The call to unfiledItemList is hanging our failing.. not sure why")
+    # Get list of images in the unfiled folder.
+    unfiledItemList = list(gc.listItem(s.DSA_UNFILED_FOLDER))
+
     originalItemId_to_unfiledItemId = {}
-    # print("unfilfedItemList", unfiledItemList)
-    ##Sometimes files are already in the unfiled Folder, so I am looking up the references here
-    ## Looking up by copyOfItem Id.. TBD is this is the best logic..
+
     for x in unfiledItemList:
         originalItemId_to_unfiledItemId[x.get("copyOfItem", None)] = x
 
     if row["_id"] not in originalItemId_to_unfiledItemId:
         itemCopyToUnfiled = gc.post(
-            f'item/{row["_id"]}/copy?folderId={unfiledFolder["_id"]}'
+            f'item/{row["_id"]}/copy?folderId={s.DSA_UNFILED_FOLDER}'
         )
     else:
         itemCopyToUnfiled = originalItemId_to_unfiledItemId[row["_id"]]
@@ -186,14 +188,14 @@ def submitImageForDeId(row):
     ### See if the resource already exists  ..
 
     if not fileExists:
-        print(f"Pushing file with {newImageName}")
+        # print(f"Pushing file with {newImageName}")
         imageFileUrl = f'wsi_deid/item/{itemCopyToUnfiled["_id"]}/action/refile?imageId={newImageName}&tokenId={imageMeta["SampleID"]}'
 
         try:
             itemCopyOutput = gc.put(imageFileUrl)
             # deidMeta = {**itemCopyOutput["meta"]["deidUpload"], **imageMeta}
-            print("-----------------" * 5)
-            print(imageMeta)
+            # print("-----------------" * 5)
+            # print(imageMeta)
 
             metaForDeidObject = {}
             for k, v in imageMeta.items():
@@ -246,14 +248,16 @@ def updateMergedDatatable(mergeddata):
                         "styleConditions": [
                             {
                                 "condition": "params.value == 'NoMeta'",
-                                "style": {"backgroundColor": "orange"},
+                                # "style": {"backgroundColor": "orange"},
+                                "style": {"fontWeight": "bold", "color": "red"},
                             },
                             {
                                 "condition": "params.value == 'Match'",
-                                "style": {
-                                    "backgroundColor": "purple",
-                                    "color": "white",
-                                },
+                                # "style": {
+                                #     "backgroundColor": "purple",
+                                #     "color": "white",
+                                # },
+                                "style": {"fontWeight": "bold", "color": "green"},
                             },
                             {
                                 "condition": "params.colDef.headerName == 'Make'",
@@ -270,6 +274,7 @@ def updateMergedDatatable(mergeddata):
                     "toolTipShowDelay": 0.2,
                     "rowSelection": "single",
                     "rowHeight": 20,
+                    "enableCellTextSelection": True,
                 },
             ),
         ]
@@ -285,6 +290,7 @@ def updateMergedDatatable(mergeddata):
     [
         Output("mergedItem_store", "data", allow_duplicate=True),
         Output("submit-deid-button", "disabled", allow_duplicate=True),
+        Output("notifications-container", "children", allow_duplicate=True),
     ],
     Input("submit-deid-button", "n_clicks"),
     State("mergedItem_store", "data"),
@@ -293,18 +299,29 @@ def updateMergedDatatable(mergeddata):
     prevent_initial_call=True,
 )
 def submit_for_deid(n_clicks, data, deidFlags, metadataList):
-    print("HELLO CRUEL WORLD???")
+    # This can only happen if there is an unfiled folder to check on.
+    if not s.DSA_LOGIN_SUCCESS:
+        return (
+            no_update,
+            no_update,
+            dmc.Notification(
+                title="Warning",
+                action="show",
+                id="simple-notify",
+                message="You must be logged in to submit for deid.",
+                icon=DashIconify(icon="ic:round-celebration"),
+            ),
+        )
+
     if not n_clicks or not data:
         raise PreventUpdate
 
     ## Need to turn this into an array it it's null
     if not deidFlags:
         deidFlags = []
-    print(len(data), "elements were received for processing")
     for row in data:
-        # print(row)
         curDsaPath = row.get("curDsaPath", None)
-        # print(curDsaPath,row)
+
         if curDsaPath:
             if curDsaPath.startswith("/collection/WSI DeID/Approved"):
                 row["deidStatus"] = "In Approved Status"
@@ -327,7 +344,7 @@ def submit_for_deid(n_clicks, data, deidFlags, metadataList):
     processDeIDset(data, deidFlags)
 
     # Re-enable the button after processing
-    return data, False
+    return data, False, no_update
 
 
 def processDeIDset(data, deID_flags):
