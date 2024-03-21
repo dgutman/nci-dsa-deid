@@ -20,20 +20,7 @@ import json
 import dash_mantine_components as dmc
 import dash_ag_grid as dag
 from settings import gc
-
-collections = gc.get("collection")
-
-# Create a global dictionary for the cache
-folder_cache = {}
-
-## Preseed this with collection names
-
-for c in collections:
-    folder_cache[c["_id"]] = c["name"]
-
-# ## To simplify the logic, I am going to pre-Cache the collection Name as well as the
-# ## First set of subfolders, as they require a different girder call to the getFolder
-# ## call and it becomes confusing to follow..
+from girder_client import HttpError
 
 
 SIDEBAR_COLLAPSED = {
@@ -81,28 +68,7 @@ CONTENT_STYLE = {
 }
 
 
-def get_folder_name(folder_id, level=2):
-    """
-    Get the folder name for a given folder_id.
-    If the folder_id is not in the cache, fetch it using girder_client.
-    """
-    # Check if folder_id is in the cache
-    if folder_id in folder_cache:
-        return folder_cache[folder_id]
-
-    # If not in cache, fetch using girder_client
-    try:
-        folder_info = gc.getFolder(folder_id)
-        folder_name = folder_info["name"]
-        # Update the cache
-        folder_cache[folder_id] = folder_name
-        return folder_name
-    except:
-        # print(f"Failed to fetch folder name for id: {folder_id}")
-        return None
-
-
-def folder_div(collection_folder):
+def folder_div(collection_folder, folder_cache):
     if collection_folder["_modelType"] == "collection":
         level = 1
     else:
@@ -143,14 +109,39 @@ def folder_div(collection_folder):
     )
 
 
-tree_components = [
-    dcc.Markdown(
-        "## Folder Tree", style={"marginBottom": 10, "marginTop": 10, "marginLeft": 10}
-    )
-]
+def get_tree_components():
+    """Get the tree components for the collections."""
+    try:
+        tree_components = [
+            dcc.Markdown(
+                "## Folder Tree",
+                style={"marginBottom": 10, "marginTop": 10, "marginLeft": 10},
+            )
+        ]
 
-for collection in collections:
-    tree_components.append(folder_div(collection))
+        collections = gc.get("collection")
+
+        # Create a global dictionary for the cache
+        folder_cache = {}
+
+        ## Preseed this with collection names
+        for c in collections:
+            folder_cache[c["_id"]] = c["name"]
+
+        for collection in collections:
+            tree_components.append(folder_div(collection, folder_cache))
+
+        return tree_components, folder_cache
+    except:
+        return [
+            dcc.Markdown(
+                "## ",
+                style={"marginBottom": 10, "marginTop": 10, "marginLeft": 10},
+            )
+        ], None
+
+
+tree_components, folder_cache = get_tree_components()
 
 tree_layout = html.Div(
     [
@@ -247,12 +238,12 @@ slideListTab_content = html.Div(
                             className="me-2",
                             style={"maxWidth": 300},
                         ),
-                        dbc.Button(
-                            "JustDeID",
-                            id="no-meta-deid-button",
-                            className="me-1",
-                            style={"maxWidth": 300},
-                        ),
+                        # dbc.Button(
+                        #     "JustDeID",
+                        #     id="no-meta-deid-button",
+                        #     className="me-1",
+                        #     style={"maxWidth": 300},
+                        # ),
                         html.Div(id="current_selected_folder"),
                     ]
                 ),
@@ -260,6 +251,7 @@ slideListTab_content = html.Div(
             className="mt-4",
         ),
         dsaFileTree_layout,
+        # dmc.NotificationsProvider(html.Div([html.Div(id="notification-container")])),
     ],
     style={"height": "100%"},
 )
@@ -283,6 +275,11 @@ slideListTab_content = html.Div(
     prevent_initial_call=True,
 )
 def update_folder_styles_and_icons(n_clicks, folder_id, last_clicked_folder_data):
+    if folder_cache is None:
+        print("it is none")
+    else:
+        print("it is not none")
+
     children = []
     icon = DashIconify(icon="material-symbols:folder", width=20)
     style = {"color": "blue"}
@@ -313,7 +310,10 @@ def update_folder_styles_and_icons(n_clicks, folder_id, last_clicked_folder_data
             itemList = gc.get(f"item?folderId={folder_id['id']}")
 
         if subfolders:
-            children = [html.Div(folder_div(subfolder)) for subfolder in subfolders]
+            children = [
+                html.Div(folder_div(subfolder, folder_cache))
+                for subfolder in subfolders
+            ]
             icon = DashIconify(icon="material-symbols:folder-open-rounded", width=20)
             style = {"color": "green"}
         else:

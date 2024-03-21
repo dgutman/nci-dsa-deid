@@ -1,38 +1,71 @@
-import json, girder_client, os
+import json
+from girder_client import GirderClient
 import logging
-from dotenv import load_dotenv
+
+import os
+from os import getenv
+
+DEBUG = getenv("DEBUG", False)
 
 SCHEMA_FILE = "importManifestSchema.json"
 TEST_MODE = False
 TEST_FILENAME = "exampleData_112322.csv"
-# TEST_FOLDERID = "6477c00e309a9ffde6689635"
 
-TEST_FOLDERID = "64da4e64309a9ffde668b9e6"  ## VISUM FOLDER
-
-TEST_FOLDERID = "6452a8b1239ec54642356cad"  ## This has 31 files
-
-DSA_UNFILED_FOLDER = (
-    "/WSI DeID/Unfiled"  ## This is for internal bookkeeping, Will be hidden
-)
-
-DSA_LOGIN_SUCCESS = False
-
-load_dotenv(".env", override=True)
 DSAKEY = os.getenv("DSAKEY")
 DSA_BASE_URL = os.getenv("DSA_API_URL")
-gc = girder_client.GirderClient(apiUrl=DSA_BASE_URL)
 
-defaultItemList = list(gc.listItem(TEST_FOLDERID))
+# DSA_BASE_URL = "JC was here"
+gc = GirderClient(apiUrl=DSA_BASE_URL)
 
-if DSAKEY:
+# DSAKEY = "JC was here"
+
+try:
+    # Authenticate the client.
     gc.authenticate(apiKey=DSAKEY)
     DSA_LOGIN_SUCCESS = True
-    print("App has logged into the DSA")
+
+    # Look for the unfiled folder id, if not there then create it.
+    try:
+        response = gc.get("resource/lookup?path=/collection/WSI DeID/Unfiled")
+    except:
+        response = None
+
+    if response:
+        DSA_UNFILED_FOLDER = response["_id"]
+    else:
+        # Look for collection.
+        try:
+            response = gc.get("resource/lookup?path=/collection/WSI DeID")
+        except:
+            # This breaks the app, by default your server should have this collection.
+            raise Exception("WSI DeID collection not found, app cannot run this way.")
+
+        try:
+            DSA_UNFILED_FOLDER = gc.createFolder(
+                response["_id"], "Unfiled", parentType="collection"
+            )["_id"]
+        except:
+            DSA_UNFILED_FOLDER = None
+except:
+    DSA_LOGIN_SUCCESS = False
+
+    # Look for unfiled folder, if it does not exist then remove.
+    try:
+        response = gc.get("resource/lookup?path=/collection/WSI DeID/Unfiled")
+        DSA_UNFILED_FOLDER = response["_id"]
+    except:
+        DSA_UNFILED_FOLDER = None
+
+if TEST_MODE:
+    # For debug mode get a list of item to load to the table on startup.
+    # TEST_FOLDERID = "64da4e64309a9ffde668b9e6"  ## VISUM FOLDER
+    # TEST_FOLDERID = "6452a8b1239ec54642356cad"  ## This has 31 files
+    TEST_FOLDERID = "jc was here"  # for testing, this should crash the application if the failsafe is not set up well
+    defaultItemList = list(gc.listItem(TEST_FOLDERID))
 
 # Set up logging.
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 
 # Create a file handler
 log_filename = "app.log"
@@ -45,7 +78,6 @@ file_handler.setFormatter(formatter)
 
 # Add the handler to the logger
 logger.addHandler(file_handler)
-
 
 ### These are fields that should be copied from the metadata file to the merged file
 COLS_FOR_COPY = [
@@ -60,7 +92,6 @@ COLS_FOR_COPY = [
     "ImageID",
     "OutputFileName",
 ]
-
 
 MERGED_COL_DEFS = [
     {
@@ -120,7 +151,6 @@ MERGED_COL_DEFS = [
     {"field": "ImageID"},
     {"field": "valid"},
 ]
-
 
 with open(SCHEMA_FILE) as file:
     SCHEMA = json.load(file)
