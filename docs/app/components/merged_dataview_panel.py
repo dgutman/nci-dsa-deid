@@ -31,6 +31,8 @@ def checkForExistingFile(deidOutputFileName):
     ## or it would be extremely difficult to figure out which version is which.. this looks for the
     ## filename on the DSA and returns a path to where the file is located
     ## Dependinog on the path, we can then trigger other options..
+    from components.dsa_login_panel import gc
+
     folders = (
         "/collection/WSI DeID/Approved",
         "/collection/WSI DeID/Redacted",
@@ -42,12 +44,6 @@ def checkForExistingFile(deidOutputFileName):
     if searchStatus:
         for item in searchStatus.get("item", []):
             resourcePath = gc.get(f"resource/{item['_id']}/path?type=item")
-
-            # if (
-            #     deidOutputFileName
-            #     == "TCGA-08-0509-01A-01-TS1.27f6ae4c-e445-4e2e-a94b-31d449ba69c9.deid.svs"
-            # ):
-            #     print(resourcePath)
 
             if resourcePath.startswith((folders)):
                 return resourcePath
@@ -131,7 +127,7 @@ merged_data_panel = html.Div(
 
 @callback(
     Output("submit-button-state-store", "data"),
-    Output("submit-deid-button", "disabled"),
+    Output("submit-deid-button", "disabled", allow_duplicate=True),
     Input("submit-deid-button", "n_clicks"),
     State("submit-button-state-store", "data"),
     prevent_initial_call=True,
@@ -142,6 +138,8 @@ def disable_button(n_clicks, button_data):
 
 
 def getUnfiledFolder(gc):
+    from components.dsa_login_panel import gc
+
     try:
         response = gc.get("resource/lookup?path=/collection/WSI DeID/Unfiled")
     except:
@@ -318,7 +316,9 @@ def updateMergedDatatable(mergeddata):
 )
 def submit_for_deid(n_clicks, data, deidFlags, metadataList, loginState):
     # This can only happen if there is an unfiled folder to check on.
-    if not loginState.get("loggedIn", False):
+
+    print(loginState, "is current login state..")
+    if not loginState.get("logged_in", False):
         return (
             no_update,
             no_update,
@@ -339,7 +339,7 @@ def submit_for_deid(n_clicks, data, deidFlags, metadataList, loginState):
         deidFlags = []
     for row in data:
         ### Check for valid metadata
-
+        print("processing row", row)
         curDsaPath = row.get("curDsaPath", None)
 
         if row.get("valid") == "INVALID":
@@ -374,6 +374,8 @@ def submit_for_deid(n_clicks, data, deidFlags, metadataList, loginState):
 def processDeIDset(data, deID_flags):
     ### This will process a list of items in the DSA and move them through the deidentificaiton
     ## Workflow, which goes from submitted, into an availble to process, into a redacted folder
+    from components.dsa_login_panel import gc
+
     if "batchSubmit_atp" in deID_flags:
         atp_imageIds = [
             x["_id"] for x in data if x["deidStatus"] == "AvailableToProcess Folder"
@@ -394,6 +396,7 @@ def displayMacroForSelectedRow(selected):
     if selected:
         thumbSrc = hlprs.get_thumbnail_as_b64(selected[0]["_id"])
         return thumbSrc
+    ## TO FIX --- double check girder client token
 
 
 @callback(
