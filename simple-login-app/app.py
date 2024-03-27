@@ -67,7 +67,9 @@ app.layout = html.Div(
             """
             function getToken() {
                 return localStorage.getItem("Girder-Token");
-            }       
+            }
+
+            getToken();
         """,
             id="get-token-script",
         ),
@@ -148,19 +150,16 @@ def update_collection_grid(data):
     return no_update
 
 
-# @callback(
-#     Output("token", "children"),
-#     Input("get-token-btn", "n_clicks"),
-#     State("get-token-script", "children"),
-#     prevent_initial_call=True,
-# )
-# def get_token(n_clicks, val):
-#     if n_clicks:
-#         # Run the script to get the token.
-#         return val
-
-#     return ""
-clientside_callback()
+clientside_callback(
+    """
+function getToken() {
+    return localStorage.getItem("Girder-Token");
+}
+""",
+    Output("token", "children"),
+    Input("get-token-btn", "n_clicks"),
+    prevent_initial_call=True,
+)
 
 
 if __name__ == "__main__":
