@@ -3,7 +3,6 @@ from dash_iconify import DashIconify
 import dash_mantine_components as dmc
 import json, girder_client
 import dash_ag_grid as dag
-from settings import gc
 import json
 import settings as s
 
@@ -12,6 +11,8 @@ from dash.exceptions import PreventUpdate
 
 import utils.barcodeHelpers as bch
 import utils.deidHelpers as hlprs
+
+from components.dsa_login_panel import gc
 
 
 ## Trying to add diskcache functionality
@@ -42,11 +43,11 @@ def checkForExistingFile(deidOutputFileName):
         for item in searchStatus.get("item", []):
             resourcePath = gc.get(f"resource/{item['_id']}/path?type=item")
 
-            if (
-                deidOutputFileName
-                == "TCGA-08-0509-01A-01-TS1.27f6ae4c-e445-4e2e-a94b-31d449ba69c9.deid.svs"
-            ):
-                print(resourcePath)
+            # if (
+            #     deidOutputFileName
+            #     == "TCGA-08-0509-01A-01-TS1.27f6ae4c-e445-4e2e-a94b-31d449ba69c9.deid.svs"
+            # ):
+            #     print(resourcePath)
 
             if resourcePath.startswith((folders)):
                 return resourcePath
@@ -140,12 +141,6 @@ def disable_button(n_clicks, button_data):
     return button_data, True
 
 
-# ## This is the folder things get filed into when they are unfiled/available to process.
-# if s.DSA_UNFILED_FOLDER:
-#     # First create the folder if it does not exist, this also gets it.
-#     unfiledFolder = gc.get(f"resource/lookup?path=/collection{s.DSA_UNFILED_FOLDER}")
-
-
 ## TO DO.. ADD MORE LOGIC HERE
 def submitImageForDeId(row):
     # Your logic for submitting the image for DeID goes here
@@ -173,11 +168,11 @@ def submitImageForDeId(row):
     newImagePath = f'WSI DeID/AvailableToProcess/{row["SampleID"]}/{newImageName}'
 
     if newImageName.endswith(".svs"):
-        print("Updating new image path which is:", newImageName)
+        # print("Updating new image path which is:", newImageName)
         newImageName = newImageName.replace(
             ".svs", ""
         )  ## Need to clarify with D Manthey where/how to avoid adding the extension twice
-    print("And nw should be", newImageName)
+    # print("And now should be", newImageName)
 
     try:
         fileUrl = f"resource/lookup?path=/collection/{newImagePath}.svs"  ## DEID adds extension during move
@@ -193,10 +188,6 @@ def submitImageForDeId(row):
 
         try:
             itemCopyOutput = gc.put(imageFileUrl)
-            # deidMeta = {**itemCopyOutput["meta"]["deidUpload"], **imageMeta}
-            # print("-----------------" * 5)
-            # print(imageMeta)
-
             metaForDeidObject = {}
             for k, v in imageMeta.items():
                 if k in bch.keysForBarcode:
@@ -296,11 +287,12 @@ def updateMergedDatatable(mergeddata):
     State("mergedItem_store", "data"),
     State("deid-flag-inputs", "value"),
     State("metadata_store", "data"),
+    State("login-state", "data"),
     prevent_initial_call=True,
 )
-def submit_for_deid(n_clicks, data, deidFlags, metadataList):
+def submit_for_deid(n_clicks, data, deidFlags, metadataList, loginState):
     # This can only happen if there is an unfiled folder to check on.
-    if not s.DSA_LOGIN_SUCCESS:
+    if not loginState.get("loggedIn", False):
         return (
             no_update,
             no_update,
@@ -320,7 +312,13 @@ def submit_for_deid(n_clicks, data, deidFlags, metadataList):
     if not deidFlags:
         deidFlags = []
     for row in data:
+        ### Check for valid metadata
+
         curDsaPath = row.get("curDsaPath", None)
+
+        if row.get("valid") == "INVALID":
+            row["deidStatus"] = "Invalid Metadata"
+            continue
 
         if curDsaPath:
             if curDsaPath.startswith("/collection/WSI DeID/Approved"):
@@ -350,15 +348,11 @@ def submit_for_deid(n_clicks, data, deidFlags, metadataList):
 def processDeIDset(data, deID_flags):
     ### This will process a list of items in the DSA and move them through the deidentificaiton
     ## Workflow, which goes from submitted, into an availble to process, into a redacted folder
-    print(deID_flags)
-    # print(data)
     if "batchSubmit_atp" in deID_flags:
         atp_imageIds = [
             x["_id"] for x in data if x["deidStatus"] == "AvailableToProcess Folder"
         ]
         status = gc.put(f"wsi_deid/action/list/process?ids={json.dumps(atp_imageIds)}")
-        # print(status)
-        # print(atp_imageIds)
 
     if "batchSubmit_redacted" in deID_flags:
         redact_imageIds = [
@@ -367,9 +361,6 @@ def processDeIDset(data, deID_flags):
         status = gc.put(
             f"wsi_deid/action/list/finish?ids={json.dumps(redact_imageIds)}"
         )
-        print(status)
-
-        # print(redact_imageIds)
 
 
 @callback(Output("currentItemMacro", "src"), Input("merged-datagrid", "selectedRows"))
@@ -384,7 +375,6 @@ def displayMacroForSelectedRow(selected):
 )
 def displayThumbnailForSelectedRow(selected):
     if selected:
-        # img = hlprs.create_image()
         selected = selected[0]  ## Only returns a single row, but it's an array
         ### Hack for now  so I copy over the metadata needed..
         selected["meta"]["deidUpload"] = selected
@@ -395,79 +385,6 @@ def displayThumbnailForSelectedRow(selected):
             selected, outputFileName, item=selected
         )
 
-        # h, w = deidBarCode.size
         encoded_image = hlprs.image_to_base64(deidBarCode)
 
         return f"data:image/png;base64,{encoded_image}"
-
-
-# @callback(
-#     [
-#         Output("mergedItem_store", "data", allow_duplicate=True),
-#         Output("submit-deid-button", "disabled", allow_duplicate=True),
-#     ],
-#     Input("submit-deid-button", "n_clicks"),
-#     State("mergedItem_store", "data"),
-#     State("submit-deid-button", "disabled"),
-#     prevent_initial_call=True,
-# )
-# def submit_for_deid(n_clicks, data, is_disabled):
-#     if not n_clicks or not data:
-#         raise dash.exceptions.PreventUpdate
-
-#     if is_disabled:
-#         raise dash.exceptions.PreventUpdate
-
-#     # Disable the button immediately while processing
-#     is_button_disabled = True
-
-#     for row in data:
-#         if row["curDsaPath"]:
-#             row["deidStatus"] = "Already Submitted"
-#         elif row["match_result"] in ["Match", "NoMeta"]:
-#             submitImageForDeId(row)
-#             row["deidStatus"] = "Submitted"
-#         else:
-#             row["deidStatus"] = "SKIPPED"
-
-#     # Re-enable the button after processing
-#     is_button_disabled = False
-#     return data, is_button_disabled
-
-
-# def submit_for_deid(n_clicks, data, is_disabled):
-#     if not n_clicks or not data:
-#         raise dash.exceptions.PreventUpdate
-
-#     if is_disabled:
-#         raise dash.exceptions.PreventUpdate
-#     # Disable the button immediately while processing
-#     is_button_disabled = True
-
-
-#     for row in data:
-#         if row["curDsaPath"]:
-#             row["deidStatus"] = "Already Submitted"
-#         elif row["match_result"] in ["Match", "NoMeta"]:
-#             submitImageForDeId(row)
-#             row["deidStatus"] = "Submitted"
-#         else:
-#             row["deidStatus"] = "SKIPPED"
-#     is_button_disabled = False
-#     return data, False  # or any other message or result you want to display
-
-
-# @callback(
-#     Output("submit-deid-button", "disabled"),
-#     Input("submit-deid-button", "n_clicks"),
-#     State("submit-deid-button", "disabled"),
-#     prevent_initial_call=True,
-# )
-# def disable_button(n_clicks, is_disabled):
-#     if n_clicks > 0:
-#         return True
-#     return False
-# dbc.Tooltip(
-#     "You must be logged on to submit",
-#     target="submit-deid-button-span",
-# ),

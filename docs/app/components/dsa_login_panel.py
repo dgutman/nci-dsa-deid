@@ -4,47 +4,57 @@ import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify
 import settings as s
+from girder_client import AuthenticationError
+import girder_client
 
-# Assume gc is your Girder Client, you might need to import and configure it properly.
+from settings import DSA_BASE_URL
 
-login_state = dcc.Store(id="login-state", data={"logged_in": False, "username": None})
+
+gc = girder_client.GirderClient(apiUrl=DSA_BASE_URL)
+
+
+## Figure out the session related context here
+login_state = dcc.Store(
+    id="login-state",
+    storage_type="memory",
+    data={"logged_in": False, "username": None},
+)
 
 
 login_modal = dbc.Modal(
     [
-        dbc.ModalHeader("Login Notification", className="bg-primary text-white"),
+        dbc.ModalHeader("DSA Login Panel", className="bg-primary text-white"),
         dbc.ModalBody(
-            id="login-notification-body", className="text-center"
+            [
+                dbc.Input(
+                    placeholder="Username",
+                    id="username-input",
+                    className="my-2 mb-3 ml-2   modal-input-height",
+                    style={"maxWidth": 280},
+                ),
+                dbc.Input(
+                    placeholder="Password",
+                    id="password-input",
+                    type="password",
+                    className="mb-3 ml-2 modal-input-height",
+                    style={"maxWidth": 280},
+                ),
+                dbc.Button(
+                    "Authenticate",
+                    id="authenticate-button",
+                    color="primary",
+                    className="ml-5 text-align-center mb-3 ",
+                    style={"maxWidth": 200},
+                ),
+                html.Div(id="login-notification-body"),
+            ],
+            className="text-center",
         ),  # Message will be set here
-        dbc.Input(
-            placeholder="Username",
-            id="username-input",
-            className="my-2 modal-input-height",
-            style={"maxWidth": 200},
-        ),
-        dbc.Input(
-            placeholder="Password",
-            id="password-input",
-            type="password",
-            className="mb-3 modal-input-height",
-            style={"maxWidth": 200},
-        ),
-        dbc.Button(
-            "Authenticate", id="authenticate-button", color="primary", className="w-100"
-        ),
-        dbc.ModalFooter(
-            dbc.Button(
-                "Close",
-                id="close-login-modal-btn",
-                className="ml-auto",
-                color="secondary",
-            )
-        ),
     ],
     id="login-modal",
     is_open=False,
     centered=True,
-    size="lg",
+    size="sm",
     className="text-dark",
 )
 
@@ -74,7 +84,7 @@ dsa_login_panel = dmc.Grid(
                 variant="filled",
                 color="green",
                 id="login-logout-button",
-                style={"marginRight": "30px", "display": "none"},
+                # style={"marginRight": "30px", "display": "none"},
             ),
             span=2,
             style={"display": "flex", "justifyContent": "flex-end"},
@@ -84,13 +94,6 @@ dsa_login_panel = dmc.Grid(
     justify="end",
 )
 
-# loginSuccess = dmc.Notification(
-#     title="Login Status",
-#     id="login-success-notification",
-#     action="show",
-#     message="Login was successful",
-#     icon=DashIconify(icon="ic:round-celebration"),
-# )
 
 dsa_login_panel = dbc.Container(
     [dsa_login_panel, login_state],
@@ -110,7 +113,6 @@ dsa_login_panel = dbc.Container(
     [
         Input("login-logout-button", "n_clicks"),
         Input("authenticate-button", "n_clicks"),
-        Input("close-login-modal-btn", "n_clicks"),
     ],
     [
         State("username-input", "value"),
@@ -118,42 +120,26 @@ dsa_login_panel = dbc.Container(
         State("login-state", "data"),
         State("login-modal", "is_open"),
     ],
-    # prevent_initial_call=True,
+    prevent_initial_call=True,
 )
 def login_logout(
     n_clicks_login,
     n_clicks_authenticate,
-    n_clicks_close,
     username,
     password,
     login_state,
     is_open,
 ):
-    if s.DSA_LOGIN_SUCCESS:
-        # Get the username.
-        tokenOwner = s.gc.get("user/me")["login"]
-        return (
-            {"logged_in": True, "username": tokenOwner},
-            "Logout",
-            f"Logged in as: {tokenOwner}",
-            False,
-            "",
-        )
-    else:
-        return (
-            {"logged_in": False, "username": False},
-            "Login",
-            "Logged out",
-            False,
-            "",
-        )
 
+    global gc  ## Update the global gc state if needed
     ctx = dash.callback_context
+
+    ## This should allow me to login automagically if the env key is set
     if not ctx.triggered:
         if s.DSAKEY:
-            _ = s.gc.authenticate(apiKey=s.DSAKEY)
+            _ = gc.authenticate(apiKey=s.DSAKEY)
             s.DSA_LOGIN_SUCCESS = True
-            tokenOwner = s.gc.get("user/me")["login"]
+            tokenOwner = gc.get("user/me")["login"]
             return (
                 {"logged_in": True, "username": tokenOwner},
                 "Logout",
@@ -162,7 +148,10 @@ def login_logout(
                 "",
             )
         return (
-            dash.no_update,
+            {
+                "logged_in": False,
+                "username": None,
+            },  ## Update the store letting me know I logged out
             dash.no_update,
             dash.no_update,
             dash.no_update,
@@ -171,41 +160,43 @@ def login_logout(
 
     button_id = ctx.triggered[0]["prop_id"].split(".")[0]
     if button_id == "login-logout-button":
+
         if login_state["logged_in"]:
+            ### NEED TO LOGOUT THE GirderClient!! Currently I wasn't logging out..
+
+            gc = girder_client.GirderClient(
+                apiUrl=DSA_BASE_URL
+            )  ## Reset the girder client
+            ## NEED TO SEE IF THIS ACTUALLY LOGS OUT THE SESSION OR RECONNECTS AS NO
             return (
                 {"logged_in": False, "username": None},
                 "Login",
                 "Logged out",
-                False,
+                True,
                 "",
             )
         return dash.no_update, dash.no_update, dash.no_update, True, ""
     elif button_id == "authenticate-button":
         if username and password:
-            _ = s.gc.authenticate(username=username, password=password)
-            s.DSA_LOGIN_SUCCESS = True
-            return (
-                {"logged_in": True, "username": username},
-                "Logout",
-                f"Logged in as: {username}",
-                False,
-                "",
-            )
-        return (
-            dash.no_update,
-            dash.no_update,
-            dash.no_update,
-            dash.no_update,
-            "Login failed. Please check your credentials.",
-        )
-    elif button_id == "close-login-modal-btn":
-        return (
-            dash.no_update,
-            dash.no_update,
-            dash.no_update,
-            not is_open,
-            dash.no_update,
-        )
+            try:
+                _ = gc.authenticate(username=username, password=password)
+                s.DSA_LOGIN_SUCCESS = True
+                return (
+                    {"logged_in": True, "username": username},
+                    "Logout",
+                    f"Logged in as: {username}",
+                    False,
+                    "",
+                )
+            except AuthenticationError:
+                return (
+                    dash.no_update,
+                    dash.no_update,
+                    dash.no_update,
+                    dash.no_update,
+                    "Login failed. Please check your credentials.",
+                )
+
     return (
         dash.no_update,
         dash.no_update,

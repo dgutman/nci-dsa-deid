@@ -19,8 +19,10 @@ from dash_iconify import DashIconify
 import json
 import dash_mantine_components as dmc
 import dash_ag_grid as dag
-from settings import gc
+
+# from settings import gc
 from girder_client import HttpError
+import girder_client
 
 
 SIDEBAR_COLLAPSED = {
@@ -28,7 +30,6 @@ SIDEBAR_COLLAPSED = {
     "top": 62.5,
     "left": "-27rem",  # Adjust this value so a portion of the sidebar remains visible
     "bottom": 0,
-    # "width": "30rem",  # Keep the width the same as the expanded sidebar
     "height": "100%",
     "z-index": 1,
     "overflow-x": "hidden",
@@ -38,16 +39,10 @@ SIDEBAR_COLLAPSED = {
 }
 # Define the new style for the toggle button and the vertical text
 TOGGLE_BUTTON_STYLE = {
-    # # "position": "relative",
-    # "top": "155px",
-    # "left": "35px",
-    # "width": 50,
-    # "padding-right": -20,
     "z-index": 2,  # This ensures the button is above other elements
 }
 
 VERTICAL_TEXT_STYLE = {
-    # "position": "absolute",
     "top": "50%",
     "left": "10px",
     "transform": "translateY(-50%) rotate(-90deg)",
@@ -64,7 +59,7 @@ CONTENT_STYLE = {
     "margin-right": "2rem",
     "padding": "0rem 0rem",
     "background-color": "#f8f9fa",
-    "width": "100%",
+    "width": "580px",
 }
 
 
@@ -111,6 +106,9 @@ def folder_div(collection_folder, folder_cache):
 
 def get_tree_components():
     """Get the tree components for the collections."""
+    from components.dsa_login_panel import gc
+
+    ### See if importing it in the function works..
     try:
         tree_components = [
             dcc.Markdown(
@@ -143,10 +141,27 @@ def get_tree_components():
 
 tree_components, folder_cache = get_tree_components()
 
+
+@callback(
+    Output("fld-tree-collapse", "children"),
+    Input("metadata_store", "data"),
+    Input("login-state", "data"),
+)
+def update_tree_components(metadata, loginState):
+    global folder_cache
+    from components.dsa_login_panel import gc
+
+    # print("Login state changed?")
+    # print(loginState)
+    # print(gc.token)
+    tree_components, folder_cache = get_tree_components()
+    return tree_components
+
+
 tree_layout = html.Div(
     [
         dbc.Collapse(
-            tree_components,
+            [html.Div("")],
             is_open=True,
             id="fld-tree-collapse",
             dimension="width",
@@ -158,39 +173,80 @@ tree_layout = html.Div(
             style=TOGGLE_BUTTON_STYLE,
         ),
     ],
-    style={"display": "flex", "background-color": "#f8f9fa", "height": "100%"},
+    style={
+        "display": "flex",
+        "background-color": "#f8f9fa",
+        "height": "100%",
+        "overflow-y": "scroll",
+    },
 )
 
 
-content = html.Div(
-    id="itemListinfo",
-    children=[
-        dag.AgGrid(
-            id="itemGrid",
-            columnSize="autoSize",
-            dashGridOptions={"pagination": True, "paginationAutoPageSize": True},
-            columnDefs=[
-                {"field": "name", "headerName": "Filename"},
-                {
-                    "field": "size",
-                    "headerName": "File Size",
-                    "width": 150,
-                    "columnSize": "autoSize",
-                },
-                {"field": "_id", "headerName": "DSA ID"},
-                {"field": "match_result", "headerName": "Matching Metadata"},
+record_match_status = html.Div(id="file-match-info", style={"margin-left": "50px"})
+
+
+content = dbc.Row(
+    [
+        dbc.Col(
+            [
+                html.Div(
+                    id="itemListinfo",
+                    children=[
+                        dag.AgGrid(
+                            id="itemGrid",
+                            columnSize="autoSize",
+                            dashGridOptions={
+                                "pagination": True,
+                                "paginationAutoPageSize": True,
+                            },
+                            columnDefs=[
+                                {"field": "name", "headerName": "Filename"},
+                                {
+                                    "field": "size",
+                                    "headerName": "File Size",
+                                    "width": 150,
+                                    "columnSize": "autoSize",
+                                },
+                                {"field": "_id", "headerName": "DSA ID"},
+                                {
+                                    "field": "match_result",
+                                    "headerName": "Matching Metadata",
+                                },
+                            ],
+                            defaultColDef={
+                                "resizable": True,
+                                "sortable": True,
+                                "filter": True,
+                                "flex": 1,
+                                "cellStyle": {
+                                    "styleConditions": [
+                                        {
+                                            "condition": "params.value == 'No Match'",
+                                            "style": {
+                                                "fontWeight": "bold",
+                                                "color": "red",
+                                            },
+                                        },
+                                        {
+                                            "condition": "params.value == 'Matched'",
+                                            "style": {
+                                                "fontWeight": "bold",
+                                                "color": "green",
+                                            },
+                                        },
+                                    ]
+                                },
+                            },
+                        ),
+                    ],
+                    style=CONTENT_STYLE,
+                )
             ],
-            defaultColDef={
-                "resizable": True,
-                "sortable": True,
-                "filter": True,
-                "flex": 1,
-            },
-        )
-    ],
-    style=CONTENT_STYLE,
+            width=8,
+        ),
+        dbc.Col([record_match_status], width=3),
+    ]
 )
-
 
 sidebar = html.Div(
     [
@@ -215,10 +271,7 @@ dsaFileTree_layout = html.Div(
         dcc.Store(id="side_click"),
         dcc.Location(id="url"),
         html.Div(
-            [
-                html.Div(sidebar, style={"marginRight": 15}),
-                content,
-            ],
+            [html.Div(sidebar, style={"marginRight": 15}), content],
             style={"display": "flex"},
         ),
     ],
@@ -238,12 +291,6 @@ slideListTab_content = html.Div(
                             className="me-2",
                             style={"maxWidth": 300},
                         ),
-                        # dbc.Button(
-                        #     "JustDeID",
-                        #     id="no-meta-deid-button",
-                        #     className="me-1",
-                        #     style={"maxWidth": 300},
-                        # ),
                         html.Div(id="current_selected_folder"),
                     ]
                 ),
@@ -251,10 +298,40 @@ slideListTab_content = html.Div(
             className="mt-4",
         ),
         dsaFileTree_layout,
-        # dmc.NotificationsProvider(html.Div([html.Div(id="notification-container")])),
     ],
     style={"height": "100%"},
 )
+
+
+### This populates some stats on the number of items in the metadata CSV file, the current item set, and the number of matches
+
+
+@callback(
+    Output("file-match-info", "children"),
+    Input("metadata_store", "data"),
+    Input("itemList_store", "data"),
+)
+def update_file_match_info(metadata, itemList):
+    if metadata and itemList:
+        metadataCount = len(metadata)
+        itemCount = len(itemList)
+        matchedCount = len([i for i in itemList if i["match_result"] == "Matched"])
+        return html.Div(
+            [
+                html.H5(
+                    f"Metadata Items: {metadataCount}", className="alert alert-primary"
+                ),
+                html.H5(
+                    f"Item List Items: {itemCount}", className="alert alert-success"
+                ),
+                html.H5(f"Matched Items: {matchedCount}", className="alert alert-info"),
+            ],
+            className="my-3",
+        )
+    return html.Div(
+        [html.H5("No Metadata or Item List Data", className="alert alert-danger")],
+        className="my-3",
+    )
 
 
 ### CALLBACKS
@@ -275,10 +352,7 @@ slideListTab_content = html.Div(
     prevent_initial_call=True,
 )
 def update_folder_styles_and_icons(n_clicks, folder_id, last_clicked_folder_data):
-    if folder_cache is None:
-        print("it is none")
-    else:
-        print("it is not none")
+    from components.dsa_login_panel import gc
 
     children = []
     icon = DashIconify(icon="material-symbols:folder", width=20)
@@ -319,14 +393,6 @@ def update_folder_styles_and_icons(n_clicks, folder_id, last_clicked_folder_data
         else:
             icon = DashIconify(icon="material-symbols:folder", width=20)
 
-    #  style={
-    #                     "text-align": "left",
-    #                     "margin-left": f"{20*level-25}px",
-    #                     "padding": "2px 8px",
-    #                     "font-size": "1rem",
-    #                     "height": "20px",
-    #                 },
-
     # Additional logic to handle style change:
     last_clicked_id = last_clicked_folder_data if last_clicked_folder_data else None
     if last_clicked_id == folder_id["id"]:
@@ -358,7 +424,6 @@ def update_folder_styles_and_icons(n_clicks, folder_id, last_clicked_folder_data
 def dumpItemList(itemList):
     if itemList:
         return itemList
-        ## Make this into a datatable...
     return []
 
 
@@ -371,7 +436,6 @@ def dumpItemList(itemList):
 def update_last_clicked_folder(n_clicks, folder_ids):
     # Extract the folder ID from the callback context to find which folder was clicked
     ctx = callback_context
-    # print("Context was", ctx.triggered_id)
 
     try:
         triggered_id = json.loads(
@@ -380,11 +444,7 @@ def update_last_clicked_folder(n_clicks, folder_ids):
         return (triggered_id,)
     except json.JSONDecodeError:
 
-        # print(
-        #     f"In dfb update_last_clicked Failed to parse JSON from: {callback_context.triggered[0]['prop_id'].split('.')[0]}"
-        # )
         return (no_update,)  # or some other appropriate default value or behavior
-    return no_update
 
 
 ## LOGIC BUG HERE IF FOLDER HAS A SUBFOLDER HAS A SUBFOLDER..
@@ -392,15 +452,17 @@ def update_last_clicked_folder(n_clicks, folder_ids):
     Output("itemList_store", "data"),
     [Input({"type": "folder", "id": ALL, "level": ALL}, "n_clicks")],
     [State({"type": "folder", "id": ALL, "level": ALL}, "id")],
+    Input("metadata_store", "data"),
     prevent_initial_call=True,
 )
-def update_recently_clicked_folder(n_clicks, folder_id):
-    # print(folder_id, "triggered this callback this time")
-    # print(n_clicks, "are the n_clicks data")
+def update_recently_clicked_folder(n_clicks, folder_id, metadata):
+    from components.dsa_login_panel import gc
+
+    filesWithMetadata = []
+    if metadata:
+        filesWithMetadata = [row["InputFileName"] for row in metadata]
 
     trigger = callback_context.triggered[0]
-    # print(folder_id, n_clicks, trigger)
-    # print(trigger, "is the triger...")
     prop_id_string = trigger["prop_id"].rsplit(".", 1)[0]
     try:
         prop_id_dict = json.loads(prop_id_string)
@@ -419,6 +481,13 @@ def update_recently_clicked_folder(n_clicks, folder_id):
     ## This logic may not always work ... if the folder has subfolders
     if level == 2 and trigger["value"] > 0:
         itemListInfoData = list(gc.listItem(folder_id))
+
+        for i in itemListInfoData:
+            if i["name"] in filesWithMetadata:
+                i["match_result"] = "Matched"
+            else:
+                i["match_result"] = "No Match"
+
         return itemListInfoData
 
     return no_update  ### if there's an error?

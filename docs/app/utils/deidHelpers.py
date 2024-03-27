@@ -4,7 +4,7 @@ import io, base64, math
 import utils.barcodeHelpers as bch
 from io import BytesIO
 import PIL
-from settings import gc
+from components.dsa_login_panel import gc
 from pylibdmtx.pylibdmtx import encode
 
 import jsonschema
@@ -158,7 +158,8 @@ def add_barcode_to_image(
 
     # Adjust the title height based on the total height of all title lines
     titleH = int(math.ceil(total_textH * 1.35))
-
+    if titleH > 900:
+        titleH = 52  ### Need to empierically determine max Height..
     ## I always want these to be a square..
 
     if square and (w != h or (not previouslyAdded or w != targetW or h < titleH)):
@@ -275,7 +276,6 @@ def get_thumbnail_as_b64(item_id=None, thumb_array=False, height=256, encoding="
         f"item/{item_id}/tiles/thumbnail?encoding={encoding}"  # &height={height}"
     )
     thumb = gc.get(thumb_download_endpoint, jsonResp=False).content
-    print("Pulling", item_id)
 
     base64_encoded = base64.b64encode(thumb).decode("utf-8")
 

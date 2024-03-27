@@ -44,17 +44,7 @@ app.layout = dmc.NotificationsProvider(
     html.Div(
         [
             html.Script(src="/assets/customRenderer.js"),
-            # html.Div(
-            #     id={"type": "selected-folder", "id": "TBD", "level": 0},
-            #     style={
-            #         "font-size": "20px",
-            #         "font-weight": "bold",
-            #         "margin-bottom": "20px",
-            #     },
-            # ),
-            # modal_tree,
             dsa_login_panel,
-            # dcc.Store(id="itemList_store", data=s.defaultItemList),  # Debugging
             dcc.Store(id="itemList_store", data=[]),
             dcc.Store(id="metadata_store"),
             dcc.Store(id="mergedItem_store"),
@@ -101,8 +91,18 @@ def process_row(row, COLS_FOR_COPY, metadataDict):
     if not row["name"].endswith(".svs"):
         row["deidStatus"] = "FileType Not Supported"
         row["OutputFileName"] = " "
+
     else:
-        row["OutputFileName"] = os.path.splitext(row["name"])[0] + ".deid.svs"
+        if not row["OutputFileName"]:
+            ## In this case, the filename was not provided and so we will just generate one
+            row["OutputFileName"] = os.path.splitext(row["name"])[0] + ".deid.svs"
+
+        ## Check for case where file extension is not added to the outputfilene
+        if not row["OutputFileName"].endswith(
+            ".svs"
+        ):  ### Check for proper extension when I add support for other file types..
+            if len(row["OutputFileName"].split(".")) > 1:  ## Work around null filknames
+                row["OutputFileName"] = row["OutputFileName"] + ".svs"
 
         deidFileStatus = checkForExistingFile(row["OutputFileName"])
 
@@ -120,9 +120,9 @@ def process_row(row, COLS_FOR_COPY, metadataDict):
                 row["curDsaPath"] = deidFileStatus
 
     if validator.is_valid(row):
-        row["valid"] = "Es Bueno"
+        row["valid"] = "ValidRow"
     else:
-        row["valid"] = "Es Malo"
+        row["valid"] = "INVALID"
 
     return row
 
@@ -197,4 +197,4 @@ if __name__ == "__main__":
     with open(s.log_filename, "w"):
         pass
 
-    app.run_server(debug=False, host="0.0.0.0")
+    app.run_server(debug=True, host="0.0.0.0", threaded=True)
