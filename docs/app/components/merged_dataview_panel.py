@@ -12,14 +12,14 @@ from dash.exceptions import PreventUpdate
 import utils.barcodeHelpers as bch
 import utils.deidHelpers as hlprs
 
-from components.dsa_login_panel import gc
-
 
 ## Trying to add diskcache functionality
 def lookupDSAresource(textPrefix, mode="prefix", limit=1):
     """This will use the girder_client to look for filenames in the DSA.  The app does not
     currently allow duplicate files to be created during the deID process.. this would make it extremely confusing
     to figure out what has and has not been deidentified"""
+    from components.dsa_login_panel import gc
+
     searchOutput = gc.get(
         f'resource/search?q={textPrefix}&mode={mode}&limit={limit}&types=["item"]'
     )
@@ -141,12 +141,38 @@ def disable_button(n_clicks, button_data):
     return button_data, True
 
 
+def getUnfiledFolder(gc):
+    try:
+        response = gc.get("resource/lookup?path=/collection/WSI DeID/Unfiled")
+    except:
+        response = None
+
+    if response:
+        DSA_UNFILED_FOLDER = response["_id"]
+        return DSA_UNFILED_FOLDER
+    else:
+        # Look for collection.
+        try:
+            response = gc.get("resource/lookup?path=/collection/WSI DeID")
+        except:
+            # This breaks the app, by default your server should have this collection.
+            raise Exception("WSI DeID collection not found, app cannot run this way.")
+
+    return None
+
+
 ## TO DO.. ADD MORE LOGIC HERE
 def submitImageForDeId(row):
     # Your logic for submitting the image for DeID goes here
     ## So check if file is already un the unfiled Directory.. if so just use that..
     # Get list of images in the unfiled folder.
-    unfiledItemList = list(gc.listItem(s.DSA_UNFILED_FOLDER))
+    from components.dsa_login_panel import gc
+
+    ## UNFILED FOLDER NEEDS TO BE LOOKED UP since it may be private..
+
+    DSA_UNFILED_FOLDER = getUnfiledFolder(gc)
+
+    unfiledItemList = list(gc.listItem(DSA_UNFILED_FOLDER))
 
     originalItemId_to_unfiledItemId = {}
 
@@ -155,7 +181,7 @@ def submitImageForDeId(row):
 
     if row["_id"] not in originalItemId_to_unfiledItemId:
         itemCopyToUnfiled = gc.post(
-            f'item/{row["_id"]}/copy?folderId={s.DSA_UNFILED_FOLDER}'
+            f'item/{row["_id"]}/copy?folderId={DSA_UNFILED_FOLDER}'
         )
     else:
         itemCopyToUnfiled = originalItemId_to_unfiledItemId[row["_id"]]
