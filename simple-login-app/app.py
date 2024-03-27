@@ -1,4 +1,14 @@
-from dash import Dash, html, Input, Output, callback, State, no_update, dcc
+from dash import (
+    Dash,
+    html,
+    Input,
+    Output,
+    callback,
+    State,
+    no_update,
+    dcc,
+    clientside_callback,
+)
 import dash_bootstrap_components as dbc
 from girder_client import GirderClient
 from dash_ag_grid import AgGrid
@@ -15,7 +25,7 @@ app.layout = html.Div(
         html.Div(
             [
                 html.Div("Logged out", id="username-status"),
-                dbc.Button("Login", id="login-btn", style={"margin-left": 10}),
+                dbc.Button("Login", id="login-btn", style={"marginLeft": 10}),
             ],
             style={"display": "flex"},
         ),
@@ -53,6 +63,16 @@ app.layout = html.Div(
             ],
             rowData=[],
         ),
+        html.Script(
+            """
+            function getToken() {
+                return localStorage.getItem("Girder-Token");
+            }       
+        """,
+            id="get-token-script",
+        ),
+        dbc.Button("Get token", id="get-token-btn"),
+        html.Div(id="token"),
     ]
 )
 
@@ -126,6 +146,21 @@ def update_collection_grid(data):
         return response.json()
 
     return no_update
+
+
+# @callback(
+#     Output("token", "children"),
+#     Input("get-token-btn", "n_clicks"),
+#     State("get-token-script", "children"),
+#     prevent_initial_call=True,
+# )
+# def get_token(n_clicks, val):
+#     if n_clicks:
+#         # Run the script to get the token.
+#         return val
+
+#     return ""
+clientside_callback()
 
 
 if __name__ == "__main__":
