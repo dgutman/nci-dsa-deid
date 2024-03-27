@@ -127,7 +127,7 @@ merged_data_panel = html.Div(
 
 @callback(
     Output("submit-button-state-store", "data"),
-    Output("submit-deid-button", "disabled", allow_duplicate=True),
+    Output("submit-deid-button", "disabled"),
     Input("submit-deid-button", "n_clicks"),
     State("submit-button-state-store", "data"),
     prevent_initial_call=True,
