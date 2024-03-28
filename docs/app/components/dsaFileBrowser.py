@@ -24,6 +24,8 @@ import dash_ag_grid as dag
 from girder_client import HttpError
 import girder_client
 
+from components.dsa_login_panel import getGc
+
 
 SIDEBAR_COLLAPSED = {
     # "position": "fixed",
@@ -106,9 +108,6 @@ def folder_div(collection_folder, folder_cache):
 
 def get_tree_components():
     """Get the tree components for the collections."""
-    from components.dsa_login_panel import gc
-
-    ### See if importing it in the function works..
     try:
         tree_components = [
             dcc.Markdown(
@@ -117,9 +116,10 @@ def get_tree_components():
             )
         ]
 
-        collections = gc.get("collection")
+        collections = getGc().get("collection")
 
         # Create a global dictionary for the cache
+        ### May want to refactor this... not sure this is the best way to do this
         folder_cache = {}
 
         ## Preseed this with collection names
@@ -149,11 +149,6 @@ tree_components, folder_cache = get_tree_components()
 )
 def update_tree_components(metadata, loginState):
     global folder_cache
-    from components.dsa_login_panel import gc
-
-    # print("Login state changed?")
-    # print(loginState)
-    # print(gc.token)
     tree_components, folder_cache = get_tree_components()
     return tree_components
 
@@ -352,8 +347,6 @@ def update_file_match_info(metadata, itemList):
     prevent_initial_call=True,
 )
 def update_folder_styles_and_icons(n_clicks, folder_id, last_clicked_folder_data):
-    from components.dsa_login_panel import gc
-
     children = []
     icon = DashIconify(icon="material-symbols:folder", width=20)
     style = {"color": "blue"}
@@ -374,14 +367,14 @@ def update_folder_styles_and_icons(n_clicks, folder_id, last_clicked_folder_data
         button_label = f"{folderName} ({itemCount})"  # Modify the button's label to include the count
 
         if level == 1:
-            subfolders = gc.get(
+            subfolders = getGc().get(
                 "folder?parentType=collection&parentId=%s" % folder_id["id"]
             )
         else:
-            subfolders = gc.get(
+            subfolders = getGc().get(
                 "folder?parentType=folder&parentId=%s" % folder_id["id"]
             )
-            itemList = gc.get(f"item?folderId={folder_id['id']}")
+            itemList = getGc().get(f"item?folderId={folder_id['id']}")
 
         if subfolders:
             children = [
@@ -456,8 +449,6 @@ def update_last_clicked_folder(n_clicks, folder_ids):
     prevent_initial_call=True,
 )
 def update_recently_clicked_folder(n_clicks, folder_id, metadata):
-    from components.dsa_login_panel import gc
-
     filesWithMetadata = []
     if metadata:
         filesWithMetadata = [row["InputFileName"] for row in metadata]
@@ -476,11 +467,10 @@ def update_recently_clicked_folder(n_clicks, folder_id, metadata):
     level = prop_id_dict["level"]
     folder_type = prop_id_dict["type"]
     folder_id = prop_id_dict["id"]
-    # print(level, folder_type, folder_id)
 
     ## This logic may not always work ... if the folder has subfolders
     if level == 2 and trigger["value"] > 0:
-        itemListInfoData = list(gc.listItem(folder_id))
+        itemListInfoData = list(getGc().listItem(folder_id))
 
         for i in itemListInfoData:
             if i["name"] in filesWithMetadata:

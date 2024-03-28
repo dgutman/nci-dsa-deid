@@ -2,13 +2,15 @@ import dash
 from dash import dcc, html, callback, Input, Output, State, no_update
 import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
-from dash_iconify import DashIconify
+
+# from dash_iconify import DashIconify
 import settings as s
 from girder_client import AuthenticationError
 import girder_client
 
 from settings import DSA_BASE_URL
 
+## CReate initial girder client that just connects to the Prefefined host from the .env file
 
 gc = girder_client.GirderClient(apiUrl=DSA_BASE_URL)
 
@@ -19,6 +21,24 @@ login_state = dcc.Store(
     storage_type="memory",
     data={"logged_in": False, "username": None},
 )
+
+
+def getGc(apiKey=None, username=None, password=None, logOut=False):
+    ### This will create a reference to the girder client
+    global gc
+    if "gc" not in globals():
+        gc = girder_client.GirderClient(apiUrl=DSA_BASE_URL)
+
+    if apiKey:
+        gc.authenticate(apiKey=apiKey)
+
+    elif logOut:
+        gc.token = ""
+        gc.session = ""
+    elif username and password:
+        gc.authenticate(username=username, password=password)
+
+    return gc
 
 
 login_modal = dbc.Modal(
@@ -131,14 +151,13 @@ def login_logout(
     is_open,
 ):
 
-    global gc  ## Update the global gc state if needed
+    # global gc  ## Update the global gc state if needed
     ctx = dash.callback_context
 
     ## This should allow me to login automagically if the env key is set
     if not ctx.triggered:
         if s.DSAKEY:
-            _ = gc.authenticate(apiKey=s.DSAKEY)
-            s.DSA_LOGIN_SUCCESS = True
+            gc = getGc(apiKey=s.DSAKEY)
             tokenOwner = gc.get("user/me")["login"]
             return (
                 {"logged_in": True, "username": tokenOwner},
@@ -164,9 +183,7 @@ def login_logout(
         if login_state["logged_in"]:
             ### NEED TO LOGOUT THE GirderClient!! Currently I wasn't logging out..
 
-            gc = girder_client.GirderClient(
-                apiUrl=DSA_BASE_URL
-            )  ## Reset the girder client
+            getGc(logOut=True)  ## Logout the girder client..
             ## NEED TO SEE IF THIS ACTUALLY LOGS OUT THE SESSION OR RECONNECTS AS NO
             return (
                 {"logged_in": False, "username": None},
@@ -179,8 +196,8 @@ def login_logout(
     elif button_id == "authenticate-button":
         if username and password:
             try:
-                _ = gc.authenticate(username=username, password=password)
-                s.DSA_LOGIN_SUCCESS = True
+                _ = getGc(username=username, password=password)
+                ## TO DO... Catch if the login fails
                 return (
                     {"logged_in": True, "username": username},
                     "Logout",

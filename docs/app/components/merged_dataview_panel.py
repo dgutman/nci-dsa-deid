@@ -12,15 +12,16 @@ from dash.exceptions import PreventUpdate
 import utils.barcodeHelpers as bch
 import utils.deidHelpers as hlprs
 
+from components.dsa_login_panel import getGc
+
 
 ## Trying to add diskcache functionality
 def lookupDSAresource(textPrefix, mode="prefix", limit=1):
     """This will use the girder_client to look for filenames in the DSA.  The app does not
     currently allow duplicate files to be created during the deID process.. this would make it extremely confusing
     to figure out what has and has not been deidentified"""
-    from components.dsa_login_panel import gc
 
-    searchOutput = gc.get(
+    searchOutput = getGc().get(
         f'resource/search?q={textPrefix}&mode={mode}&limit={limit}&types=["item"]'
     )
     return searchOutput
@@ -31,7 +32,6 @@ def checkForExistingFile(deidOutputFileName):
     ## or it would be extremely difficult to figure out which version is which.. this looks for the
     ## filename on the DSA and returns a path to where the file is located
     ## Dependinog on the path, we can then trigger other options..
-    from components.dsa_login_panel import gc
 
     folders = (
         "/collection/WSI DeID/Approved",
@@ -43,7 +43,7 @@ def checkForExistingFile(deidOutputFileName):
 
     if searchStatus:
         for item in searchStatus.get("item", []):
-            resourcePath = gc.get(f"resource/{item['_id']}/path?type=item")
+            resourcePath = getGc().get(f"resource/{item['_id']}/path?type=item")
 
             if resourcePath.startswith((folders)):
                 return resourcePath
@@ -138,10 +138,9 @@ def disable_button(n_clicks, button_data):
 
 
 def getUnfiledFolder(gc):
-    from components.dsa_login_panel import gc
 
     try:
-        response = gc.get("resource/lookup?path=/collection/WSI DeID/Unfiled")
+        response = getGc().get("resource/lookup?path=/collection/WSI DeID/Unfiled")
     except:
         response = None
 
@@ -151,7 +150,7 @@ def getUnfiledFolder(gc):
     else:
         # Look for collection.
         try:
-            response = gc.get("resource/lookup?path=/collection/WSI DeID")
+            response = getGc().get("resource/lookup?path=/collection/WSI DeID")
         except:
             # This breaks the app, by default your server should have this collection.
             raise Exception("WSI DeID collection not found, app cannot run this way.")
@@ -164,13 +163,12 @@ def submitImageForDeId(row):
     # Your logic for submitting the image for DeID goes here
     ## So check if file is already un the unfiled Directory.. if so just use that..
     # Get list of images in the unfiled folder.
-    from components.dsa_login_panel import gc
 
     ## UNFILED FOLDER NEEDS TO BE LOOKED UP since it may be private..
 
     DSA_UNFILED_FOLDER = getUnfiledFolder(gc)
 
-    unfiledItemList = list(gc.listItem(DSA_UNFILED_FOLDER))
+    unfiledItemList = list(getGc().listItem(DSA_UNFILED_FOLDER))
 
     originalItemId_to_unfiledItemId = {}
 
@@ -374,19 +372,20 @@ def submit_for_deid(n_clicks, data, deidFlags, metadataList, loginState):
 def processDeIDset(data, deID_flags):
     ### This will process a list of items in the DSA and move them through the deidentificaiton
     ## Workflow, which goes from submitted, into an availble to process, into a redacted folder
-    from components.dsa_login_panel import gc
 
     if "batchSubmit_atp" in deID_flags:
         atp_imageIds = [
             x["_id"] for x in data if x["deidStatus"] == "AvailableToProcess Folder"
         ]
-        status = gc.put(f"wsi_deid/action/list/process?ids={json.dumps(atp_imageIds)}")
+        status = getGc().put(
+            f"wsi_deid/action/list/process?ids={json.dumps(atp_imageIds)}"
+        )
 
     if "batchSubmit_redacted" in deID_flags:
         redact_imageIds = [
             x["_id"] for x in data if x["deidStatus"] == "In Redacted Folder"
         ]
-        status = gc.put(
+        status = getGc().put(
             f"wsi_deid/action/list/finish?ids={json.dumps(redact_imageIds)}"
         )
 
