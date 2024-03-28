@@ -4,7 +4,7 @@ import io, base64, math
 import utils.barcodeHelpers as bch
 from io import BytesIO
 import PIL
-from settings import gc
+from components.dsa_login_panel import getGc
 from pylibdmtx.pylibdmtx import encode
 
 import jsonschema
@@ -18,6 +18,7 @@ import io, base64, json, jsonschema, random, datetime
 import dash_ag_grid as dag
 import config
 import base64
+import numpy as np
 
 
 def read_file_from_system(filename, filetype):
@@ -158,7 +159,8 @@ def add_barcode_to_image(
 
     # Adjust the title height based on the total height of all title lines
     titleH = int(math.ceil(total_textH * 1.35))
-
+    if titleH > 900:
+        titleH = 52  ### Need to empierically determine max Height..
     ## I always want these to be a square..
 
     if square and (w != h or (not previouslyAdded or w != targetW or h < titleH)):
@@ -252,7 +254,7 @@ def pull_thumbnail_array(item_id, height=1000, encoding="PNG"):
         f"/item/{item_id}/tiles/thumbnail?encoding={encoding}&height={height}"
     )
     try:
-        thumb = gc.get(thumb_download_endpoint, jsonResp=False).content
+        thumb = getGc().get(thumb_download_endpoint, jsonResp=False).content
         thumb = np.array(Image.open(BytesIO(thumb)))
         # dropping alpha channel and keeping only rgb
         thumb = thumb[:, :, :3]
@@ -274,13 +276,12 @@ def get_thumbnail_as_b64(item_id=None, thumb_array=False, height=256, encoding="
     thumb_download_endpoint = (
         f"item/{item_id}/tiles/thumbnail?encoding={encoding}"  # &height={height}"
     )
-    thumb = gc.get(thumb_download_endpoint, jsonResp=False).content
-    print("Pulling", item_id)
+    thumb = getGc().get(thumb_download_endpoint, jsonResp=False).content
 
     base64_encoded = base64.b64encode(thumb).decode("utf-8")
 
     # ## TO DO: Cache this?
-    pickledItem = gc.get(
+    pickledItem = getGc().get(
         f"item/{item_id}/tiles/thumbnail?encoding=pickle", jsonResp=False
     )
 
@@ -289,15 +290,9 @@ def get_thumbnail_as_b64(item_id=None, thumb_array=False, height=256, encoding="
 
     baseImage_as_np = pickle.loads(pickledItem.content)
 
-    # if not thumb_array:
-    #     thumb_array = pull_thumbnail_array(item_id, height=height, encoding=encoding)
-
     img_io = BytesIO()
     Image.fromarray(baseImage_as_np).convert("RGB").save(img_io, "PNG", quality=95)
     b64image = base64.b64encode(img_io.getvalue()).decode("utf-8")
-    # img_io = BytesIO()
-    # b64image = base64.b64encode(base6).decode("utf-8")
-    # html_img_tag = f'<img src="data:image/png;base64,{base64_encoded}" alt="Image" />'
     html_img_src = f"data:image/png;base64,{b64image}"
 
     return html_img_src
@@ -317,7 +312,6 @@ def validate_df(df):
         # print(error_tree)
         invalid_cols = []
         for e in error_list:
-            ##pass
             invalid_cols.append(*e.path)
         # print(invalid_cols)
         if invalid_cols:

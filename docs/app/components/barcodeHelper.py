@@ -80,6 +80,7 @@ def add_barcode_to_image(
 
     # Adjust the title height based on the total height of all title lines
     titleH = int(math.ceil(total_textH * 1.35))
+    print(titleH)
 
     ## I always want these to be a square..
 

@@ -18,7 +18,8 @@ This application works in tandem with a running DSA instance. The DSA instance u
 
 **Run Application for Developing by Mounting Local App Files**
 1. Modify the last line of docs/app/app.py so debug=True.
-2. After step 4 from above, run using this command: ```$ docker run -it --rm -env-file ./.env -p8050:8050 -v $(pwd)/docs/app:/app jvizcar/nci-deid:latest```
+2. After step 4 from above, run using this command: ```$ docker run -it --rm --env-file ./.env -p8050:8050 -v $(pwd)/docs/app:/app 
+jvizcar/nci-deid:latest```
     * Note that you must run this at the root of the repository.
     * When running this way, you can modify the version "docs/app" locally and the app will restart to include the changes.
 
