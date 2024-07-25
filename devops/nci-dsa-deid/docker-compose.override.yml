@@ -14,10 +14,12 @@ services:
       - ./importManifestSchema.json:/opt/digital_slide_archive/devops/dsa/importManifestSchema.json
       - ./provision.yaml:/opt/digital_slide_archive/devops/dsa/provision.yaml
       - ./homepage.md:/opt/digital_slide_archive/devops/dsa/homepage.md
-      - /localRAID:/localRAID
       - $PWD/import:/import
       - $PWD/export:/export
-      - /localSSD:/localSSD
       - ../..:/opt/nci-dsa-deid
     #    command: bash -c 'PATH="/opt/venv/bin:/.pyenv/bin:/.pyenv/shims:$PATH" pip install /opt/nci-dsa-deid && PATH="/opt/venv/bin:/.pyenv/bin:/.pyenv/shims:$PATH" python /opt/digital_slide_archive/devops/dsa/wsi_deid_provision.py && /opt/digital_slide_archive/devops/dsa/start_girder.sh '
     #command: bash -c 'PATH="/opt/venv/bin:/.pyenv/bin:/.pyenv/shims:$PATH NPM_EXE=/root/.nvm/versions/node/v14.21.3/bin/npm " pip install -e /opt/nci-dsa-deid && PATH="/opt/venv/bin:/.pyenv/bin:/.pyenv/shims:$PATH"  /opt/digital_slide_archive/devops/dsa/start_girder.sh --rebuild-client ' # system.  Also add them to the worker container to reduce copying.
+  deidhelper:
+    image: dagutman/dsadeidhelperdev:latest
+    ports:
+      - 8050:8050
