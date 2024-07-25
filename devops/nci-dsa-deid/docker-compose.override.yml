@@ -23,3 +23,5 @@ services:
     image: dagutman/dsadeidhelperdev:latest
     ports:
       - 8050:8050
+    environment:
+      DSA_API_URL: https://10.240.138.8:8080/api/v1
