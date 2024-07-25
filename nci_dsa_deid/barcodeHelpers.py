@@ -6,10 +6,6 @@ import PIL, os
 
 keysForBarcode = ["ASSAY", "BLOCK", "CASE", "INDEX", "PROJECT", "REPOSITORY", "STUDY"]
 
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
 logoImageFile = "/opt/nci-dsa-deid/nci_dsa_deid/NCI-logo-300x165.jpg"
 
 if os.path.isfile(logoImageFile):
