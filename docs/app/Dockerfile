@@ -1,6 +1,6 @@
 FROM python:3.11-slim-buster
 
-ENV PYTHONUNBUFFERED True
+ENV PYTHONUNBUFFERED=True
 
 WORKDIR /app
 
@@ -14,8 +14,8 @@ RUN apt-get update
 
 RUN apt-get install libdmtx0b
 
-# CMD python app.py
-#CMD bash
+COPY start.sh /app
 
+RUN chmod +x /app/start.sh
 
-ENTRYPOINT [ "python","app.py"]
+ENTRYPOINT ["/app/start.sh"]

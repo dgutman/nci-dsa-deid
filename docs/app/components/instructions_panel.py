@@ -1,4 +1,4 @@
-from dash import Dash, dcc, html
+from dash import dcc, html
 import dash_bootstrap_components as dbc
 
 
@@ -91,7 +91,7 @@ By following these instructions, you ensure that your metadata is correctly proc
 )
 
 
-instructions_tab = dbc.Card(
+instructions_panel = dbc.Card(
     dbc.CardBody(
         [
             html.Div(

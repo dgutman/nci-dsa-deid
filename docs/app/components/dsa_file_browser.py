@@ -2,7 +2,7 @@
 
 import dash_bootstrap_components as dbc
 from dash import html
-import girder_client
+from girder_client import GirderClient
 from dash import (
     dcc,
     html,
@@ -17,38 +17,18 @@ from dash import (
 )
 import dash_bootstrap_components as dbc
 from dash_iconify import DashIconify
-import girder_client, json
-import dash_mantine_components as dmc
+import json
 import settings as s
 import dash_ag_grid as dag
-import dash
+from concurrent.futures import ThreadPoolExecutor
+from os import getenv
 
-# # Replace with the base URL of  the DSA
-# gc = girder_client.GirderClient(apiUrl=s.DSA_BASE_URL)
-from settings import gc
-
-collections = gc.get("collection")
-
-# Create a global dictionary for the cache
-folder_cache = {}
-
-## Preseed this with collection names
-
-for c in collections:
-    folder_cache[c["_id"]] = c["name"]
-    # print(c["name"])
-
-# ## To simplify the logic, I am going to pre-Cache the collection Name as well as the
-# ## First set of subfolders, as they require a different girder call to the getFolder
-# ## call and it becomes confusing to follow..
-
+from utils.utils import folder_div, process_row
 
 SIDEBAR_COLLAPSED = {
-    # "position": "fixed",
     "top": 62.5,
     "left": "-27rem",  # Adjust this value so a portion of the sidebar remains visible
     "bottom": 0,
-    # "width": "30rem",  # Keep the width the same as the expanded sidebar
     "height": "100%",
     "z-index": 1,
     "overflow-x": "hidden",
@@ -56,18 +36,11 @@ SIDEBAR_COLLAPSED = {
     "padding": "0rem 0rem",
     "background-color": "#f8f9fa",
 }
+
 # Define the new style for the toggle button and the vertical text
-TOGGLE_BUTTON_STYLE = {
-    # # "position": "relative",
-    # "top": "155px",
-    # "left": "35px",
-    # "width": 50,
-    # "padding-right": -20,
-    "z-index": 2,  # This ensures the button is above other elements
-}
+TOGGLE_BUTTON_STYLE = {"z-index": 2}
 
 VERTICAL_TEXT_STYLE = {
-    # "position": "absolute",
     "top": "50%",
     "left": "10px",
     "transform": "translateY(-50%) rotate(-90deg)",
@@ -75,8 +48,6 @@ VERTICAL_TEXT_STYLE = {
     "white-space": "nowrap",
     "font-weight": "bold",
 }
-## If level=1 it means it's a root folder for a collection
-
 
 CONTENT_STYLE = {
     "transition": "margin-left .5s",
@@ -87,77 +58,12 @@ CONTENT_STYLE = {
     "width": "100%",
 }
 
-
-def get_folder_name(folder_id, level=2):
-    """
-    Get the folder name for a given folder_id.
-    If the folder_id is not in the cache, fetch it using girder_client.
-    """
-    # Check if folder_id is in the cache
-    if folder_id in folder_cache:
-        return folder_cache[folder_id]
-
-    # If not in cache, fetch using girder_client
-    try:
-        folder_info = gc.getFolder(folder_id)
-        folder_name = folder_info["name"]
-        # Update the cache
-        folder_cache[folder_id] = folder_name
-        return folder_name
-    except:
-        print(f"Failed to fetch folder name for id: {folder_id}")
-        return None
-
-
-def folder_div(collection_folder):
-    if collection_folder["_modelType"] == "collection":
-        level = 1
-    else:
-        level = 2
-
-    ## update the folder cache
-    folder_cache[collection_folder["_id"]] = collection_folder["name"]
-
-    return html.Div(
-        [
-            dmc.Button(
-                collection_folder["name"],
-                leftIcon=DashIconify(icon="material-symbols:folder", width=20),
-                id={"type": "folder", "id": collection_folder["_id"], "level": level},
-                n_clicks=0,
-                variant="subtle",
-                style={
-                    "text-align": "left",
-                    "margin-left": f"{20*level-25}px",
-                    "padding": "2px 8px",
-                    "font-size": "1rem",
-                    "height": "20px",
-                },
-            ),
-            html.Div(
-                id={
-                    "type": "subfolders",
-                    "id": collection_folder["_id"],
-                    "level": level,
-                },
-                style={"margin-left": f"{20*(level)-10}px"},
-            ),
-        ],
-        style={
-            "margin-top": "-4px",
-            "margin-bottom": "-4px",
-        },  # Adjust these values as needed
-    )
-
-
 tree_components = [
     dcc.Markdown(
         "## Folder Tree", style={"marginBottom": 10, "marginTop": 10, "marginLeft": 10}
-    )
+    ),
+    html.Div(id="folder-tree"),
 ]
-
-for collection in collections:
-    tree_components.append(folder_div(collection))
 
 tree_layout = html.Div(
     [
@@ -242,7 +148,7 @@ dsaFileTree_layout = html.Div(
 )
 
 
-slideListTab_content = html.Div(
+dsa_file_browser = html.Div(
     [
         dbc.Row(
             [
@@ -272,7 +178,42 @@ slideListTab_content = html.Div(
 )
 
 
-### CALLBACKS
+# Callbacks
+@callback(
+    [Output("fld-tree-collapse", "is_open"), Output("btn_sidebar", "children")],
+    [
+        Input("btn_sidebar", "n_clicks"),
+        State("fld-tree-collapse", "is_open"),
+    ],
+    prevent_initial_call=True,
+)
+def collapse_tree(n_clicks: int, is_open) -> bool:
+    if n_clicks:
+        if is_open:
+            return False, DashIconify(icon="bi:arrow-right-circle-fill")
+        else:
+            return True, DashIconify(icon="bi:arrow-left-circle-fill")
+
+    return no_update, no_update
+
+
+@callback(
+    Output("folder-tree", "children"),
+    [Input("folder-tree", "id"), Input("user-store", "data")],
+)
+def update_folder_tree(_, user_data):
+    token = user_data.get("token")
+
+    gc = GirderClient(apiUrl=getenv("DSA_API_URL"))
+
+    if token is not None:
+        gc.token = token
+
+    collections = gc.listCollection()
+
+    return [folder_div(c) for c in collections]
+
+
 @callback(
     [
         Output({"type": "subfolders", "id": MATCH, "level": MATCH}, "children"),
@@ -282,25 +223,41 @@ slideListTab_content = html.Div(
             {"type": "folder", "id": MATCH, "level": MATCH}, "children"
         ),  # Add this line for the button's label
     ],
-    [Input({"type": "folder", "id": MATCH, "level": MATCH}, "n_clicks")],
     [
+        Input({"type": "folder", "id": MATCH, "level": MATCH}, "n_clicks"),
         State({"type": "folder", "id": MATCH, "level": MATCH}, "id"),
         State("last_clicked_folder", "data"),
+        State("user-store", "data"),
     ],
     prevent_initial_call=True,
 )
-def update_folder_styles_and_icons(n_clicks, folder_id, last_clicked_folder_data):
+def update_folder_styles_and_icons(
+    n_clicks, folder_id, last_clicked_folder_data, user_data
+):
+    gc = GirderClient(apiUrl=getenv("DSA_API_URL"))
+    token = user_data.get("token")
+
+    if token is not None:
+        gc.token = token
+
     children = []
     icon = DashIconify(icon="material-symbols:folder", width=20)
     style = {"color": "blue"}
-    button_label = folder_cache[folder_id["id"]]  # None  # Initialize the button label
-    # print(n_clicks, folder_id)
+
+    try:
+        name = gc.getFolder(folder_id["id"])["name"]
+    except:
+        name = gc.getCollection(folder_id["id"])["name"]
+
+    button_label = name
+
     if n_clicks % 2 == 1:  # folder was expanded
         level = folder_id["level"]
         # Fetch item count for the clicked folder
 
         itemList = []
-        folderName = folder_cache[folder_id["id"]]
+
+        folderName = name
         ## This will fail for root folders as they can't contain items..
         try:
             itemList = list(gc.listItem(folder_id["id"]))
@@ -325,14 +282,6 @@ def update_folder_styles_and_icons(n_clicks, folder_id, last_clicked_folder_data
             style = {"color": "green"}
         else:
             icon = DashIconify(icon="material-symbols:folder", width=20)
-
-    #  style={
-    #                     "text-align": "left",
-    #                     "margin-left": f"{20*level-25}px",
-    #                     "padding": "2px 8px",
-    #                     "font-size": "1rem",
-    #                     "height": "20px",
-    #                 },
 
     # Additional logic to handle style change:
     last_clicked_id = last_clicked_folder_data if last_clicked_folder_data else None
@@ -377,74 +326,98 @@ def dumpItemList(itemList):
 )
 def update_last_clicked_folder(n_clicks, folder_ids):
     # Extract the folder ID from the callback context to find which folder was clicked
-    ctx = callback_context
-    print("Context was", ctx.triggered_id)
-
     try:
         triggered_id = json.loads(
             callback_context.triggered[0]["prop_id"].split(".")[0]
         )
         return (triggered_id,)
     except json.JSONDecodeError:
-
-        print(
-            f"In dfb update_last_clicked Failed to parse JSON from: {callback_context.triggered[0]['prop_id'].split('.')[0]}"
-        )
         return (no_update,)  # or some other appropriate default value or behavior
-    return no_update
 
 
-## LOGIC BUG HERE IF FOLDER HAS A SUBFOLDER HAS A SUBFOLDER..
 @callback(
     Output("itemList_store", "data"),
-    [Input({"type": "folder", "id": ALL, "level": ALL}, "n_clicks")],
-    [State({"type": "folder", "id": ALL, "level": ALL}, "id")],
+    [
+        Input({"type": "folder", "id": ALL, "level": ALL}, "n_clicks"),
+        State({"type": "folder", "id": ALL, "level": ALL}, "id"),
+        State("user-store", "data"),
+    ],
     prevent_initial_call=True,
 )
-def update_recently_clicked_folder(n_clicks, folder_id):
-    print(folder_id, "triggered this callback this time")
-    print(n_clicks, "are the n_clicks data")
+def update_recently_clicked_folder(_, folder_id, user_data):
+    token = user_data.get("token")
+
+    gc = GirderClient(apiUrl=getenv("DSA_API_URL"))
+
+    if token is not None:
+        gc.token = token
 
     trigger = callback_context.triggered[0]
-    print(folder_id, n_clicks, trigger)
-    print(trigger, "is the triger...")
+
     prop_id_string = trigger["prop_id"].rsplit(".", 1)[0]
+
     try:
         prop_id_dict = json.loads(prop_id_string)
     except json.JSONDecodeError:
-        print(
-            f"update_recently_flicked_folder Failed.. DEBUG! Failed to parse JSON from: {prop_id_string}"
-        )
         return no_update  # or some other appropriate default value or behavior
 
     # Now you can extract the desired values from the dictionary
     level = prop_id_dict["level"]
     folder_type = prop_id_dict["type"]
     folder_id = prop_id_dict["id"]
-    # print(level, folder_type, folder_id)
 
-    ## This logic may not always work ... if the folder has subfolders
+    # This logic may not always work ... if the folder has subfolders
     if level == 2 and trigger["value"] > 0:
         itemListInfoData = list(gc.listItem(folder_id))
-        # print(itemListInfo)
+
         return itemListInfoData
 
-    return no_update  ### if there's an error?
+    return no_update
 
 
 @callback(
-    [Output("fld-tree-collapse", "is_open"), Output("btn_sidebar", "children")],
     [
-        Input("btn_sidebar", "n_clicks"),
-        State("fld-tree-collapse", "is_open"),
+        Output("mergedItem_store", "data"),
+        Output("main-tabs", "active_tab"),  # Add this line
+    ],
+    [
+        Input("check-match-button", "n_clicks"),
+        State("metadata_store", "data"),
+        State("itemList_store", "data"),
+        State("user-store", "data"),
     ],
     prevent_initial_call=True,
 )
-def collapse_tree(n_clicks: int, is_open) -> bool:
-    if n_clicks:
-        if is_open:
-            return False, DashIconify(icon="bi:arrow-right-circle-fill")
-        else:
-            return True, DashIconify(icon="bi:arrow-left-circle-fill")
+def check_name_matches(_, metadata, itemlist_data, user_data):
+    if len(user_data):
+        gc = GirderClient(apiUrl=getenv("DSA_API_URL"))
+        gc.token = user_data.get("token")
+    else:
+        return no_update, no_update
 
-    return no_update, no_update
+    ctx = callback_context
+
+    s.logger.info(f"{len(metadata)} rows are in the metadata table")
+    s.logger.info(f"{len(itemlist_data)} rows are in the current itemlist")
+
+    if metadata:
+        metadata_mapping = {row["InputFileName"]: row for row in metadata}
+    else:
+        metadata_mapping = {}
+
+    with ThreadPoolExecutor() as executor:
+        results = list(
+            executor.map(
+                process_row,
+                gc,
+                itemlist_data,
+                [s.COLS_FOR_COPY] * len(itemlist_data),
+                [metadata_mapping]
+                * len(itemlist_data),  ## Note this oddity of science..
+            )
+        )
+
+    if ctx.triggered_id == "validate-deid-status-button":
+        return results, "merged-data"
+    else:
+        return results, "merged-data"

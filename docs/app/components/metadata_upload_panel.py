@@ -1,10 +1,9 @@
-from dash import dcc, html, Input, Output, State, callback, no_update
+from dash import dcc, html, Input, Output, State, callback
 import dash_bootstrap_components as dbc
-from utils.deidHelpers import parse_testfile, parse_contents
-import settings as s
+from utils.deidHelpers import parse_contents
+from settings import TEST_MODE, TEST_FILENAME
 
-
-metadata_upload_layout = dbc.Container(
+metadata_upload_panel = dbc.Container(
     [
         html.Div(
             "Please drag and drop a CSV file containing metadata linked to the slides of interest below"
@@ -30,28 +29,26 @@ metadata_upload_layout = dbc.Container(
 )
 
 
-## Changing this to deal with only a single input..
 @callback(
-    Output("output-data-upload", "children"),
-    Output("metadata_store", "data"),
-    Input("upload-data", "contents"),
-    State("upload-data", "filename"),
-    State("upload-data", "last_modified"),
+    [Output("output-data-upload", "children"), Output("metadata_store", "data")],
+    [
+        Input("upload-data", "contents"),
+        State("upload-data", "filename"),
+        State("upload-data", "last_modified"),
+    ],
 )
 def update_output(file_content, file_name, file_upload_date):
-    if s.TEST_MODE:
+    if TEST_MODE:
         uploaded_file_layout, uploaded_file_data = parse_contents(
-            "TEST_FILE", s.TEST_FILENAME, file_upload_date
+            "TEST_FILE", TEST_FILENAME, file_upload_date
         )
 
         return [uploaded_file_layout], uploaded_file_data
 
     ### TO DO:  Handle exception better, may want to use the mantine_notification provider
     valid_extensions = ("csv", "xlsx")
-    if file_name.endswith(valid_extensions):
-        print("Valid extension found")
-    else:
-        print("Invalid exception found")
+
+    if not file_name.endswith(valid_extensions):
         return [html.Div()], {}
     ### Check and see if the file_name ends with .csv or .xlsx
 
