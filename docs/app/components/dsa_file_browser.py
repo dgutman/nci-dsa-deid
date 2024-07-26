@@ -405,11 +405,18 @@ def check_name_matches(_, metadata, itemlist_data, user_data):
     else:
         metadata_mapping = {}
 
+    clients = []
+
+    for _ in range(len(itemlist_data)):
+        gc = GirderClient(apiUrl=getenv("DSA_API_URL"))
+        gc.token = user_data.get("token")
+        clients.append(gc)
+
     with ThreadPoolExecutor() as executor:
         results = list(
             executor.map(
                 process_row,
-                gc,
+                clients,
                 itemlist_data,
                 [s.COLS_FOR_COPY] * len(itemlist_data),
                 [metadata_mapping]

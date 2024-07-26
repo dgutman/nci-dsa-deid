@@ -71,6 +71,7 @@ app.layout = dmc.NotificationsProvider(
                     ),
                 ],
                 active_tab="metadata",
+                id="main-tabs",
             ),
         ]
     )
