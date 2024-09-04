@@ -144,3 +144,4 @@ docs/app/deidHelpers.broken.py
 .DS_Store
 docs/app/callbacker.py
 docs/app/requirements.txt.old
+docs/app/components/dsaFileBrowser.py.backup

@@ -166,7 +166,7 @@ def submitImageForDeId(row):
 
     ## UNFILED FOLDER NEEDS TO BE LOOKED UP since it may be private..
 
-    DSA_UNFILED_FOLDER = getUnfiledFolder(gc)
+    DSA_UNFILED_FOLDER = getUnfiledFolder(getGc())
 
     unfiledItemList = list(getGc().listItem(DSA_UNFILED_FOLDER))
 
@@ -176,7 +176,7 @@ def submitImageForDeId(row):
         originalItemId_to_unfiledItemId[x.get("copyOfItem", None)] = x
 
     if row["_id"] not in originalItemId_to_unfiledItemId:
-        itemCopyToUnfiled = gc.post(
+        itemCopyToUnfiled = getGc().post(
             f'item/{row["_id"]}/copy?folderId={DSA_UNFILED_FOLDER}'
         )
     else:
@@ -184,7 +184,7 @@ def submitImageForDeId(row):
 
     imageMeta = row
 
-    gc.addMetadataToItem(itemCopyToUnfiled["_id"], {"deidUpload": row})
+    getGc().addMetadataToItem(itemCopyToUnfiled["_id"], {"deidUpload": row})
 
     newImageName = row["OutputFileName"]
     newImagePath = f'WSI DeID/AvailableToProcess/{row["SampleID"]}/{newImageName}'
@@ -198,7 +198,7 @@ def submitImageForDeId(row):
 
     try:
         fileUrl = f"resource/lookup?path=/collection/{newImagePath}.svs"  ## DEID adds extension during move
-        fileExists = gc.get(fileUrl)
+        fileExists = getGc().get(fileUrl)
         fileExists = True
     except:
         fileExists = False
@@ -209,13 +209,13 @@ def submitImageForDeId(row):
         imageFileUrl = f'wsi_deid/item/{itemCopyToUnfiled["_id"]}/action/refile?imageId={newImageName}&tokenId={imageMeta["SampleID"]}'
 
         try:
-            itemCopyOutput = gc.put(imageFileUrl)
+            itemCopyOutput = getGc().put(imageFileUrl)
             metaForDeidObject = {}
             for k, v in imageMeta.items():
                 if k in bch.keysForBarcode:
                     metaForDeidObject[k] = v
 
-            gc.addMetadataToItem(
+            getGc().addMetadataToItem(
                 itemCopyOutput["_id"], {"deidUpload": metaForDeidObject}
             )
         except girder_client.HttpError as e:
