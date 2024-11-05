@@ -30,13 +30,23 @@ def getGc(apiKey=None, username=None, password=None, logOut=False):
         gc = girder_client.GirderClient(apiUrl=DSA_BASE_URL)
 
     if apiKey:
-        gc.authenticate(apiKey=apiKey)
+        try:
+            gc.authenticate(apiKey=apiKey)
+        except Exception as e:
+            print(f"Error authenticating with API key: {e}")
+            # gc.token = ""
+            # gc.session = ""
 
     elif logOut:
         gc.token = ""
         gc.session = ""
     elif username and password:
-        gc.authenticate(username=username, password=password)
+        try:
+            gc.authenticate(username=username, password=password)
+        except Exception as e:
+            print(f"Error authenticating with username and password: {e}")
+            # gc.token = ""
+            # gc.session = ""
 
     return gc
 

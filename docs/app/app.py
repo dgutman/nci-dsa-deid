@@ -17,15 +17,21 @@ from components.instructionPanel import instructions_tab
 from components.metaDataUpload_panel import metadata_upload_layout
 from components.merged_dataview_panel import merged_data_panel, checkForExistingFile
 
+# Get prefix from environment variable, defaulting to '/' if not set
+requests_prefix = getenv('REQUESTS_PREFIX', '/')
+
 external_stylesheets = [
     "https://codepen.io/chriddyp/pen/bWLwgP.css",
     dbc.themes.BOOTSTRAP,
+   
 ]
 
 app = Dash(
     __name__,
     external_stylesheets=external_stylesheets,
     suppress_callback_exceptions=True,
+    url_base_pathname=requests_prefix,
+    serve_locally=True
 )
 
 tabs = dbc.Tabs(

@@ -14,6 +14,8 @@ TEST_FILENAME = "exampleData_112322.csv"
 DSAKEY = os.getenv("DSAKEY")
 DSA_BASE_URL = os.getenv("DSA_API_URL")
 
+print(f"DSA_BASE_URL: {DSA_BASE_URL}")
+
 
 # try:
 #     # Authenticate the client.
