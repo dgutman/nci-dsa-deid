@@ -2,9 +2,9 @@
 version: '3'
 services:
   girder:
-    #image: "dagutman/nci-dsa-deid:latest"
-    build:
-      context: .
+    image: "dagutman/nci-dsa-deid:latest"
+    #build:
+    #  context: .
     # Only have this on during dev
     # Instead of privileged mode, fuse can use:
     privileged: true
