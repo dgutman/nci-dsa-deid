@@ -34,11 +34,11 @@ SIDEBAR_STYLE = {
     "bottom": 0,
     "width": "30rem",
     "height": "100%",
-    "z-index": 1,
+    "zIndex": 1,
     "overflow-x": "hidden",
     "transition": "all 0.5s",
     "padding": "0.5rem 1rem",
-    "background-color": "#f8f9fa",
+    "backgroundColor": "#f8f9fa",
     # "border": "0px",
     # "box-shadow": "none",
 }
@@ -50,11 +50,11 @@ SIDEBAR_COLLAPSED = {
     "bottom": 0,
     "width": "30rem",  # Keep the width the same as the expanded sidebar
     "height": "100%",
-    "z-index": 1,
-    "overflow-x": "hidden",
+    "zIndex": 1,
+    "overflowX": "hidden",
     "transition": "all 0.5s",
     "padding": "0rem 0rem",
-    "background-color": "#f8f9fa",
+    "backgroundColor": "#f8f9fa",
 }
 # Define the new style for the toggle button and the vertical text
 TOGGLE_BUTTON_STYLE = {
@@ -71,9 +71,9 @@ VERTICAL_TEXT_STYLE = {
     "top": "50%",
     "left": "10px",
     "transform": "translateY(-50%) rotate(-90deg)",
-    "z-index": 1,  # Below the toggle button but above other elements
-    "white-space": "nowrap",
-    "font-weight": "bold",
+    "zIndex": 1,  # Below the toggle button but above other elements
+    "whiteSpace": "nowrap",
+    "fontWeight": "bold",
 }
 ## If level=1 it means it's a root folder for a collection
 
@@ -117,10 +117,10 @@ def folder_div(collection_folder):
                 n_clicks=0,
                 variant="subtle",
                 style={
-                    "text-align": "left",
-                    "margin-left": f"{20*level-25}px",
+                    "textAlign": "left",
+                    "marginLeft": f"{20*level-25}px",
                     "padding": "2px 8px",
-                    "font-size": "1rem",
+                    "fontSize": "1rem",
                     "height": "20px",
                 },
             ),
@@ -130,12 +130,12 @@ def folder_div(collection_folder):
                     "id": collection_folder["_id"],
                     "level": level,
                 },
-                style={"margin-left": f"{20*(level)-10}px"},
+                style={"marginLeft": f"{20*(level)-10}px"},
             ),
         ],
         style={
-            "margin-top": "-4px",
-            "margin-bottom": "-4px",
+            "marginTop": "-4px",
+            "marginBottom": "-4px",
         },  # Adjust these values as needed
     )
 
@@ -156,7 +156,7 @@ tree_layout = html.Div(
                         n_clicks=0,
                     ),
                     width=1,  # This takes up 1 out of 12 parts of the width
-                    style={"padding": 0, "margin-left": "-10px", "margin-top": "10px"},
+                    style={"padding": 0, "marginLeft": "-10px", "marginTop": "2px"},
                 ),
             ]
         ),
@@ -171,7 +171,7 @@ tree_layout = html.Div(
                 "height": "750px",
                 "overflow": "scroll",
                 "border": "0px",
-                "padding-right": "0px",
+                "paddingRight": "0px",
                 "border": "0px",
             },
         ),
@@ -180,7 +180,7 @@ tree_layout = html.Div(
         "border": "4px solid #ddd",  # Optional: adds a border around the div
         "margin": "1px",  # Adjust the margin here
         "padding": "1px",
-        "box-shadow": "none",  # Adjust the padding here
+        "boxShadow": "none",  # Adjust the padding here
     },
 )
 
@@ -365,18 +365,18 @@ navbar = dbc.NavbarSimple(
 # add some padding.
 CONTENT_STYLE = {
     "transition": "margin-left .5s",
-    "margin-left": "32rem",
-    "margin-right": "2rem",
+    "marginLeft": "32rem",
+    "marginRight": "2rem",
     "padding": "2rem 1rem",
-    "background-color": "#f8f9fa",
+    "backgroundColor": "#f8f9fa",
 }
 
 CONTENT_STYLE1 = {
     "transition": "margin-left .5s",
-    "margin-left": "2rem",
-    "margin-right": "2rem",
+    "marginLeft": "2rem",
+    "marginRight": "2rem",
     "padding": "2rem 1rem",
-    "background-color": "#f8f9fa",
+    "backgroundColor": "#f8f9fa",
 }
 
 sidebar = html.Div(

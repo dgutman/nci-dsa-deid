@@ -2,10 +2,24 @@ from dash import dcc, html, Input, Output, State, callback, no_update
 import dash_bootstrap_components as dbc
 from utils.deidHelpers import parse_testfile, parse_contents
 import settings as s
+import pandas as pd
 
 
 metadata_upload_layout = dbc.Container(
     [
+        # Add a link for downloading the CSV template
+        html.Div(
+            [
+                dbc.Button("Download CSV Template", id="btn_csv_template"),
+                dcc.Download(id="download-template-csv"),
+            ],
+            style={
+                "display": "flex",
+                "justifyContent": "center",
+                "marginBottom": "5px",
+                "marginTop": "5px",
+            },
+        ),
         html.Div(
             "Please drag and drop a CSV file containing metadata linked to the slides of interest below"
         ),
@@ -28,6 +42,19 @@ metadata_upload_layout = dbc.Container(
         html.Div(id="output-data-upload"),
     ]
 )
+
+
+@callback(
+    Output("download-template-csv", "data"),
+    Input("btn_csv_template", "n_clicks"),
+    prevent_initial_call=True,
+)
+def download_template(n_clicks):
+    if n_clicks:
+        df = pd.read_csv("exampleData_112322.csv")
+        return dcc.send_data_frame(df.to_csv, "deidTemplate.csv")
+
+    return no_update
 
 
 ## Changing this to deal with only a single input..

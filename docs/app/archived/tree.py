@@ -30,11 +30,13 @@ def folder_div(collection_folder):
                 n_clicks=0,
                 variant="subtle",
                 style={
-                    "text-align": "left",
-                    "margin-left": f"{20*level}px",
+                    "textAlign": "left",
+                    "marginLeft": f"{20*level}px",
                     "padding": "2px 8px",
-                    "font-size": "1rem",
+                    "fontSize": "1rem",
                     "height": "18px",
+                    "marginBottom": "-10px",
+                    "marginTop": "-10px",
                 },
             ),
             html.Div(
@@ -43,12 +45,12 @@ def folder_div(collection_folder):
                     "id": collection_folder["_id"],
                     "level": level,
                 },
-                style={"margin-left": f"{20*(level)}px"},
+                style={"marginLeft": f"{20*(level)}px"},
             ),
         ],
         style={
-            "margin-top": "0px",
-            "margin-bottom": "0px",
+            "marginTop": "0px",
+            "marginBottom": "0px",
         },  # Adjust these values as needed
     )
 

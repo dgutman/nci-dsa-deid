@@ -104,6 +104,7 @@ dsa_login_panel = dmc.Grid(
                 variant="filled",
                 color="green",
                 id="login-logout-button",
+                style={"marginTop": "4px"},
                 # style={"marginRight": "30px", "display": "none"},
             ),
             span=2,
@@ -118,7 +119,7 @@ dsa_login_panel = dmc.Grid(
 dsa_login_panel = dbc.Container(
     [dsa_login_panel, login_state],
     fluid=True,
-    style={"padding-top": "20px"},
+    style={"paddingTtop": "20px"},
 )
 
 

@@ -3,8 +3,9 @@ version: '3'
 services:
   girder:
     #image: "dagutman/nci-dsa-deid:latest"
-    build:
-      context: .
+    image: dsarchive/wsi_deid:latest
+    # build:
+    #   context: .
     # Only have this on during dev
     # Instead of privileged mode, fuse can use:
     privileged: true
@@ -40,7 +41,6 @@ services:
       - ./start_girder.sh:/opt/digital_slide_archive/devops/dsa/start_girder.sh
       # Location to store logs
       - ./logs:/logs
-
       # For local development, uncomment the set of mounts associated with the
       # local source files.  Adding the editable egg directories first allows
       # allow mounting source files from the host without breaking the internal
@@ -68,7 +68,7 @@ services:
     # writes.
     #   Limiting maxConns reduces the amount of shared memory demanded by
     # mongo.  Remove this limit or increase the host vm.max_map_count value.
-    command:  --maxConns 1000 --logpath /var/log/mongodb/mongodb.log
+    command: --maxConns 1000 --logpath /var/log/mongodb/mongodb.log
     volumes:
       # Location to store database files
       - ./db:/data/db
@@ -119,7 +119,6 @@ services:
       - /dev/fuse:/dev/fuse
     security_opt:
       - apparmor:unconfined
-
 
     environment:
       DSA_USER: ${DSA_USER:-}

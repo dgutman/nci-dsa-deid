@@ -99,7 +99,7 @@ instructions_tab = dbc.Card(
                 style={
                     "height": "500px",  # You can adjust this value to your desired height
                     # "flex": "1",
-                    "overflow-y": "auto",
+                    "overflowY": "auto",
                 },
             ),
         ]

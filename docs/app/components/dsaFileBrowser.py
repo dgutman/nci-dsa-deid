@@ -33,34 +33,34 @@ SIDEBAR_COLLAPSED = {
     "left": "-27rem",  # Adjust this value so a portion of the sidebar remains visible
     "bottom": 0,
     "height": "100%",
-    "z-index": 1,
-    "overflow-x": "hidden",
+    "zIndex": 1,
+    "overflowX": "hidden",
     "transition": "all 0.5s",
     "padding": "0rem 0rem",
-    "background-color": "#f8f9fa",
+    "backgroundColor": "#f8f9fa",
 }
 # Define the new style for the toggle button and the vertical text
 TOGGLE_BUTTON_STYLE = {
-    "z-index": 2,  # This ensures the button is above other elements
+    "zIndex": 2,  # This ensures the button is above other elements
 }
 
 VERTICAL_TEXT_STYLE = {
     "top": "50%",
     "left": "10px",
     "transform": "translateY(-50%) rotate(-90deg)",
-    "z-index": 1,  # Below the toggle button but above other elements
-    "white-space": "nowrap",
-    "font-weight": "bold",
+    "zIndex": 1,  # Below the toggle button but above other elements
+    "whiteSpace": "nowrap",
+    "fontWeight": "bold",
 }
 ## If level=1 it means it's a root folder for a collection
 
 
 CONTENT_STYLE = {
-    "transition": "margin-left .5s",
-    "margin-left": "-1rem",  # Adjusted from 32rem
-    "margin-right": "2rem",
+    "transition": "marginLeft .5s",
+    "marginLeft": "-1rem",  # Adjusted from 32rem
+    "marginRight": "2rem",
     "padding": "0rem 0rem",
-    "background-color": "#f8f9fa",
+    "backgroundColor": "#f8f9fa",
     "width": "580px",
 }
 
@@ -83,10 +83,10 @@ def folder_div(collection_folder, folder_cache):
                 n_clicks=0,
                 variant="subtle",
                 style={
-                    "text-align": "left",
-                    "margin-left": f"{20*level-25}px",
+                    "textAlign": "left",
+                    "marginLeft": f"{20*level-25}px",
                     "padding": "2px 8px",
-                    "font-size": "1rem",
+                    "fontSize": "1rem",
                     "height": "20px",
                 },
             ),
@@ -96,12 +96,12 @@ def folder_div(collection_folder, folder_cache):
                     "id": collection_folder["_id"],
                     "level": level,
                 },
-                style={"margin-left": f"{20*(level)-10}px"},
+                style={"marginLeft": f"{20*(level)-10}px"},
             ),
         ],
         style={
-            "margin-top": "-4px",
-            "margin-bottom": "-4px",
+            "marginTop": "1px",
+            "marginBottom": "-4px",
         },  # Adjust these values as needed
     )
 
@@ -170,14 +170,14 @@ tree_layout = html.Div(
     ],
     style={
         "display": "flex",
-        "background-color": "#f8f9fa",
+        "backgroundColor": "#f8f9fa",
         "height": "100%",
-        "overflow-y": "scroll",
+        "overflowY": "scroll",
     },
 )
 
 
-record_match_status = html.Div(id="file-match-info", style={"margin-left": "50px"})
+record_match_status = html.Div(id="file-match-info", style={"marginLeft": "50px"})
 
 
 content = dbc.Row(
@@ -254,9 +254,9 @@ sidebar = html.Div(
         "border": "4px solid #ddd",  # Optional: adds a border around the div
         "margin": "1px",  # Adjust the margin here
         "padding": "1px",
-        "box-shadow": "none",  # Adjust the padding here
+        "boxShadow": "none",  # Adjust the padding here
         "height": "100%",
-        "background-color": "#f8f9fa",
+        "backgroundColor": "#f8f9fa",
     },
 )
 
@@ -391,21 +391,21 @@ def update_folder_styles_and_icons(n_clicks, folder_id, last_clicked_folder_data
     if last_clicked_id == folder_id["id"]:
         style = {
             "color": "green",
-            "font-size": "1rem",
+            "fontSize": "1rem",
             "height": "20px",
             "padding": "2px 8px",
         }
     elif last_clicked_id:
         style = {
             "color": "blue",
-            "font-size": "1rem",
+            "fontSize": "1rem",
             "height": "20px",
             "padding": "2px 8px",
         }
     else:
         style = {
             "color": "blue",
-            "font-size": "1rem",
+            "fontSize": "1rem",
             "height": "20px",
             "padding": "2px 8px",
         }
