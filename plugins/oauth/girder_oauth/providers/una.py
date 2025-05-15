@@ -15,9 +15,18 @@ class Una(ProviderBase):
 
     @classmethod
     def getUrl(cls, state):
+        clientId = cls.getClientIdSetting()
+        if not clientId:
+            raise Exception("No UNA client ID setting is present.")
+
+        redirectUri = "/".join((getApiUrl(), "oauth", "una", "callback"))
+
         return (
-            "%s?client_id={client_id}&state={state}&response_type=code"
-            "&redirect_uri={redirect_uri}&scope=openid profile email" % (cls._AUTH_URL)
+            f"{cls._AUTH_URL}?client_id={clientId}"
+            f"&state={state}"
+            f"&response_type=code"
+            f"&redirect_uri={redirectUri}"
+            f"&scope=openid profile email"
         )
 
     def getToken(self, code):
