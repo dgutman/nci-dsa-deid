@@ -2,7 +2,7 @@ from girder.api.rest import getApiUrl
 from .base import ProviderBase, ProviderException
 from girder.models.setting import Setting
 from ..settings import PluginSettings
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 
 class Una(ProviderBase):
@@ -34,7 +34,7 @@ class Una(ProviderBase):
             "scope": "openid profile email",
         }
 
-        query_string = "&".join(f"{k}={quote(str(v))}" for k, v in params.items())
+        query_string = urlencode(params)
         return f"{cls._AUTH_URL}?{query_string}"
 
     def getToken(self, code):
