@@ -1,5 +1,7 @@
 from girder.api.rest import getApiUrl
 from .base import ProviderBase, ProviderException
+from girder.models.setting import Setting
+from ..settings import PluginSettings
 
 
 class Una(ProviderBase):
@@ -15,7 +17,8 @@ class Una(ProviderBase):
 
     @classmethod
     def getUrl(cls, state):
-        clientId = cls.getClientIdSetting()
+        # Get settings directly from the Setting model
+        clientId = Setting().get(PluginSettings.UNA_CLIENT_ID)
         if not clientId:
             raise Exception("No UNA client ID setting is present.")
 
