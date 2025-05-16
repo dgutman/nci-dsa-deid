@@ -2,6 +2,7 @@ from girder.api.rest import getApiUrl
 from .base import ProviderBase, ProviderException
 from girder.models.setting import Setting
 from ..settings import PluginSettings
+from urllib.parse import quote
 
 
 class Una(ProviderBase):
@@ -24,13 +25,17 @@ class Una(ProviderBase):
 
         redirectUri = "/".join((getApiUrl(), "oauth", "una", "callback"))
 
-        return (
-            f"{cls._AUTH_URL}?client_id={clientId}"
-            f"&state={state}"
-            f"&response_type=code"
-            f"&redirect_uri={redirectUri}"
-            f"&scope=openid profile email"
-        )
+        # URL encode the parameters
+        params = {
+            "client_id": clientId,
+            "state": state,
+            "response_type": "code",
+            "redirect_uri": redirectUri,
+            "scope": "openid profile email",
+        }
+
+        query_string = "&".join(f"{k}={quote(str(v))}" for k, v in params.items())
+        return f"{cls._AUTH_URL}?{query_string}"
 
     def getToken(self, code):
         params = {
