@@ -12,15 +12,15 @@ use_defaults: True
 mongo_compat: True
 # A list of additional pip modules to install; if any are girder plugins with
 # client-side code, also specify rebuild-client.
-pip:
-  - girder-oauth
-  - girder-ldap
-  - wsi-deid@git+https://github.com/digitalslidearchive/dsa-wsi-deid
-  - /opt/nci-dsa-deid
+#pip:
+#  - girder-oauth
+#  - girder-ldap
+#  - wsi-deid@git+https://github.com/digitalslidearchive/dsa-wsi-deid
+#  - /opt/nci-dsa-deid
 ## Note the internal package name for this plugin is wsi-deid
 
 # rebuild-client may be False, True (for dev mode), or "production"
-rebuild-client: True
+# rebuild-client: True
 # Default admin user if there are no admin users
 admin:
   login: admin
