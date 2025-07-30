@@ -6,9 +6,9 @@ from urllib.parse import quote, urlencode
 
 
 class Una(ProviderBase):
-    _AUTH_URL = "https://auth.ncats.nih.gov/authorize"
-    _TOKEN_URL = "https://auth.ncats.nih.gov/token"
-    _API_USER_URL = "https://auth.ncats.nih.gov/_api/v2/user/me"
+    _AUTH_URL = "https://auth.ncats.nih.gov/_api/v2/auth/NCI-DMAP/authorize"
+    _TOKEN_URL = "https://auth.ncats.nih.gov/_api/v2/auth/NCI-DMAP/oidc/token"
+    _API_USER_URL = "https://auth.ncats.nih.gov/_api/v2/auth/NCI-DMAP/me"
 
     def getClientIdSetting(self):
         return self.model("setting").get("oauth.una_client_id")
