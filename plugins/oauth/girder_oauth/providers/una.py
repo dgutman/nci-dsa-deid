@@ -11,10 +11,10 @@ class Una(ProviderBase):
     _API_USER_URL = "https://auth.ncats.nih.gov/_api/v2/auth/NCI-DMAP/me"
 
     def getClientIdSetting(self):
-        return self.model("setting").get("oauth.una_client_id")
+        return Setting().get("oauth.una_client_id")
 
     def getClientSecretSetting(self):
-        return self.model("setting").get("oauth.una_client_secret")
+        return Setting().get("oauth.una_client_secret")
 
     @classmethod
     def getUrl(cls, state):
