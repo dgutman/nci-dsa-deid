@@ -64,6 +64,7 @@ class Una(ProviderBase):
         user = {
             "login": resp.get("username", ""),
             "email": email,
+            "emailVerified": true,
             "firstName": resp.get("firstName", ""),
             "lastName": resp.get("lastName", ""),
             "oauth": {"provider": "una", "id": str(resp.get("id", ""))},
