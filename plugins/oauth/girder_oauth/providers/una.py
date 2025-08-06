@@ -61,12 +61,9 @@ class Una(ProviderBase):
         # If there's no email, fall back to username@domain
         email = resp.get("email", "{}@ncats.nih.gov".format(resp.get("username", "")))
 
-        user = {
-            "login": resp.get("username", ""),
-            "email": email,
-            "emailVerified": True,
-            "firstName": resp.get("firstName", ""),
-            "lastName": resp.get("lastName", ""),
-            "oauth": {"provider": "una", "id": str(resp.get("id", ""))},
-        }
-        return user
+        oauthId = str(resp.get("id", ""))
+        firstName = resp.get("firstName", "")
+        lastName = resp.get("lastName", "")
+        userName = resp.get("username", "")
+
+        return self._createOrReuseUser(oauthId, email, firstName, lastName, userName)
