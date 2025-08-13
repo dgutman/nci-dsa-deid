@@ -61,8 +61,18 @@ class Una(ProviderBase):
         # Debug: Print the response to see what fields are available
         print("UNA API Response:", resp)
 
-        # If there's no email, fall back to username@domain
-        email = resp.get("email", "{}@ncats.nih.gov".format(resp.get("username", "")))
+        # Get username and clean it up
+        userName = resp.get("username", "")
+        # Remove any domain suffix if present (e.g., "choyleong.nih.gov" -> "choyleong")
+        if "." in userName:
+            userName = userName.split(".")[0]
+
+        # If there's no email, create a proper email from username
+        email = resp.get("email")
+        if not email and userName:
+            email = f"{userName}@ncats.nih.gov"
+        elif not email:
+            email = "unknown@ncats.nih.gov"
 
         oauthId = str(resp.get("id", ""))
         
@@ -70,16 +80,13 @@ class Una(ProviderBase):
         firstName = resp.get("firstName") or resp.get("first_name") or resp.get("given_name") or resp.get("name", "").split()[0] if resp.get("name") else ""
         lastName = resp.get("lastName") or resp.get("last_name") or resp.get("family_name") or resp.get("name", "").split()[-1] if resp.get("name") else ""
         
-        # If still empty, use username as fallback
+        # If still empty, use cleaned username as fallback
         if not firstName and not lastName:
-            userName = resp.get("username", "")
             firstName = userName
             lastName = userName
         elif not firstName:
             firstName = lastName
         elif not lastName:
             lastName = firstName
-            
-        userName = resp.get("username", "")
 
         return self._createOrReuseUser(oauthId, email, firstName, lastName, userName)
