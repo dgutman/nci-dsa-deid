@@ -63,8 +63,12 @@ class Una(ProviderBase):
 
         # Get username and clean it up
         userName = resp.get("username", "")
-        # Remove any domain suffix if present (e.g., "choyleong.nih.gov" -> "choyleong")
-        if "." in userName:
+        # If it looks like an email, extract just the username part
+        if "@" in userName:
+            userName = userName.split("@")[0]
+        # If it has a domain suffix but no @, remove the domain part
+        elif "." in userName and not userName.startswith("."):
+            # Take everything before the first dot
             userName = userName.split(".")[0]
 
         # If there's no email, create a proper email from username
