@@ -58,12 +58,28 @@ class Una(ProviderBase):
         # Get user info from UNA API
         resp = self._getJson(method="GET", url=self._API_USER_URL, headers=headers)
 
+        # Debug: Print the response to see what fields are available
+        print("UNA API Response:", resp)
+
         # If there's no email, fall back to username@domain
         email = resp.get("email", "{}@ncats.nih.gov".format(resp.get("username", "")))
 
         oauthId = str(resp.get("id", ""))
-        firstName = resp.get("firstName", "")
-        lastName = resp.get("lastName", "")
+        
+        # Try different possible field names for first and last name
+        firstName = resp.get("firstName") or resp.get("first_name") or resp.get("given_name") or resp.get("name", "").split()[0] if resp.get("name") else ""
+        lastName = resp.get("lastName") or resp.get("last_name") or resp.get("family_name") or resp.get("name", "").split()[-1] if resp.get("name") else ""
+        
+        # If still empty, use username as fallback
+        if not firstName and not lastName:
+            userName = resp.get("username", "")
+            firstName = userName
+            lastName = userName
+        elif not firstName:
+            firstName = lastName
+        elif not lastName:
+            lastName = firstName
+            
         userName = resp.get("username", "")
 
         return self._createOrReuseUser(oauthId, email, firstName, lastName, userName)
