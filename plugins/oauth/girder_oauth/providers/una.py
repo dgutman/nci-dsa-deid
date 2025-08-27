@@ -58,9 +58,6 @@ class Una(ProviderBase):
         # Get user info from UNA API
         resp = self._getJson(method="GET", url=self._API_USER_URL, headers=headers)
 
-        # Debug: Print the response to see what fields are available
-        print("UNA API Response:", resp)
-
         # Get username and clean it up
         userName = resp.get("username", "")
         # If it looks like an email, extract just the username part
@@ -78,8 +75,13 @@ class Una(ProviderBase):
         elif not email:
             email = "unknown@ncats.nih.gov"
 
-        oauthId = str(resp.get("id", ""))
+        # Try to get a unique identifier - prefer 'id' but fall back to 'sub' (OIDC standard) or username
+        oauthId = resp.get("id") or resp.get("sub") or resp.get("username")
+        if not oauthId:
+            raise ProviderException("UNA API did not return a unique user identifier")
+        oauthId = str(oauthId)
         
+        print("oauthId", oauthId, "email", email, "userName", userName)
         # Try different possible field names for first and last name
         firstName = resp.get("firstName") or resp.get("first_name") or resp.get("given_name") or resp.get("name", "").split()[0] if resp.get("name") else ""
         lastName = resp.get("lastName") or resp.get("last_name") or resp.get("family_name") or resp.get("name", "").split()[-1] if resp.get("name") else ""
