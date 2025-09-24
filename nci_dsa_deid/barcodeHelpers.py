@@ -13,7 +13,7 @@ fontFile = "/opt/nci-dsa-deid/nci_dsa_deid/DejaVuSansMono.ttf"
 
 if os.path.isfile(logoImageFile):
     pass
-else:
+else: 
     logoImageFile = "./NCI-logo-300x165.jpg"
     ## During local testing the /opt path does not exist, so using local path
 
@@ -124,6 +124,13 @@ def add_barcode_to_image(
     )  # space between title and logo
 
     barcodeData = encode_barcode_string(item, keysForBarcode)
+
+    print(barcodeData, "is barcode data")
+    print(keysForBarcode, "are the keys for barcode")
+    print(item, "is the item")
+
+    if not barcodeData:
+        barCodeData="No metadata available"
     encoded = encode(barcodeData.encode("utf8"))
     img = Image.frombytes("RGB", (encoded.width, encoded.height), encoded.pixels)
 
