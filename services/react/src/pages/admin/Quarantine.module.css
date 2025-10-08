@@ -1,0 +1,71 @@
+.item-list{
+    padding:10px;
+}
+.quarantine-card{
+    display:grid;
+    gap:5px;
+    align-items:start;
+    border: thin gray solid;
+    padding: 5px;
+    grid-template-columns: 100px auto 1fr;
+}
+.associated-images{
+    display:flex;
+}
+.associated-image{
+    display:inline-block;
+    align-content: start;
+}
+.image{
+    text-align:center;
+}
+.thumbnail>img{
+    margin-top:1.15em;
+}
+.associated-image img{
+    width:100px;
+    height: 100px;
+    border: thin lightgray solid;
+    object-fit: contain;
+}
+.associated-image label{
+    display:block;
+}
+.associated-image img{
+    margin-bottom: 10px;
+}
+.header{
+    grid-column: 1 / -1;
+}
+.header span{
+    margin-right:1em;
+}
+.header label{
+    font-weight:bold;
+    color:gray;
+    font-size:0.8em;
+}
+.girder-item{
+    grid-column: 1 / 2;
+}
+.metadata{
+    grid-column: 3;
+}
+.internal-metadata{
+    overflow:scroll;
+    background-color:lightgray;
+    max-height:150px;
+    margin-top:1.15em;
+}
+.internal-metadata.expanded{
+    max-height:70vh;
+}
+.expand{
+    cursor:pointer;
+}
+.metadata-opts{
+    grid-column: 1 / span 2;
+}
+.item-metadata{
+    grid-column: 3;
+}

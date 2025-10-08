@@ -1,0 +1,30 @@
+.case-panel{
+    border: thin black solid;
+    margin: 1em 0;
+    padding: 1em;
+}
+.case-panel h4{
+    margin:0;
+}
+.filelist{
+    display:grid;
+    grid-template-columns:auto auto 1fr;
+    column-gap:1em;
+}
+.fileview{
+    display:contents;
+}
+.itemlist{
+    display:grid;
+    grid-template-columns:auto auto auto 1fr auto;
+    /* column-gap:1em; */
+}
+.itemview{
+    display:contents;
+}
+.itemview>*{
+    padding-right:1em;
+}
+.itemview:hover>*{
+    background-color:lightgoldenrodyellow;
+}

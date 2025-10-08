@@ -1,0 +1,10 @@
+.root{
+    text-align:center;
+}
+.stack{
+    display:inline-block;
+    text-align:left;
+    background-color:rgb(7, 35, 75);
+    color:aliceblue;
+    padding:1em 3em;
+}

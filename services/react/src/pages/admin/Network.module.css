@@ -1,0 +1,52 @@
+.page input{
+    width:25em;
+}
+.section{
+    border: thin gray solid;
+    border-radius: 5px;
+    padding: 1em 2em;
+    margin: 1em;
+}
+.section>h3{
+    margin-top:0;
+}
+
+.connections{
+    display:grid;
+    grid-template-columns: auto 1fr auto;
+}
+.connection{
+    display:contents;
+}
+.connection>div{
+    padding:0.1em 1em;
+}
+.connection:nth-of-type(2n)>div{
+    background-color: rgb(182, 191, 200);
+}
+.connection:hover>div{
+    background-color:lightgoldenrodyellow;
+}
+
+.verified{
+    color:red;
+}
+.unverified{
+    color:green;
+}
+.pauseButton{
+    background-color: rgb(223, 144, 115);
+}
+.pauseButton[data-paused=true]{
+    background-color: rgb(119, 173, 119);
+}
+.deleteButton{
+    background-color:red;
+}
+.remoteBdsaHeader{
+    display:grid;
+    grid-template-columns: auto 1fr auto auto;
+}
+.syncContainer{
+    text-align:center;
+}

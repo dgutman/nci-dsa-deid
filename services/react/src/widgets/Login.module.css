@@ -1,0 +1,78 @@
+.widget{
+    position:relative;
+    display:inline-block;
+}
+.loginbutton{
+    background-color:rgb(212, 212, 212);
+    padding:0.2em 0.5em;
+    border: thin black solid;
+    border-radius:0.1em;
+    cursor:pointer;
+}
+.username:empty::before{
+    content:'Log in';   
+}
+.username:not(:empty){
+    border-right: thin black solid;
+    padding-right:0.5em;
+    margin-right:0.5em;
+}
+.expand{
+    display:inline-block;
+}
+.loggedIn .expand:after{
+    content: "\2303";
+}
+.loggedIn:not(.expanded) .expand{
+    transform:rotate(180deg);
+}
+
+.loginDialog{
+    width: 18em;
+    display:inline-block;
+    text-align:left;
+    position:fixed;
+    top:50vh;
+    left:50vw;
+    transform: translate(-50%, -50%);
+    background-color:white;
+    border: thin black solid;
+    padding:1em;
+}
+.loginDialog form{
+    margin:1em 0;
+}
+.loginDialog h3{
+    margin:0;
+}
+.loginInputs{
+    display:grid;
+    grid-template-columns: auto 1fr;
+    column-gap:0.5em;
+}
+.logoutDialog{
+    display:inline-block;
+    width: 8em;
+    position:absolute;
+    right:0;
+    top: 2em;
+    background-color:white;
+    border: thin black solid;
+    padding:1em;
+    text-align:right;
+}
+
+.failedLogin{
+    color:red;
+    height:2em;
+}
+.background{
+    position:fixed;
+    top:0;
+    left:0;
+    right:0;
+    bottom:0;
+    background-color:black;
+    opacity:50%;
+    pointer-events:none;
+}

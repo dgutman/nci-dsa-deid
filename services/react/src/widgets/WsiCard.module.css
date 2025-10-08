@@ -1,0 +1,23 @@
+.wsiCard{
+    width:10em;
+    height:10em;
+    background-color:lightgray;
+    margin:1em;
+    border:thin gray solid;
+    border-radius:5px;
+    overflow:hidden;
+    position:relative;
+    float:left;
+}
+.wsiCard>div{
+    width:100%;
+    height:100%;
+}
+.wsiCard img{
+    max-width: 100%;
+    max-height:100%;
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform: translate(-50%, -50%)
+}

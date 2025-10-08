@@ -1,0 +1,11 @@
+.inputs{
+    display:grid;
+    grid-template-columns: auto 1fr;
+    column-gap:0.5em;
+}
+.inputs label{
+    display:contents;
+}
+.form{
+    max-width:25em;
+}

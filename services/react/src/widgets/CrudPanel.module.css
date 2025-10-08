@@ -1,0 +1,60 @@
+.crud-panel:not(.fixed-panel){
+    border: thin black solid;
+    border-radius:5px;
+    padding:5px;
+    
+}
+.fieldList{
+    display:grid;
+    grid-template-columns:auto auto 1fr;
+}
+fieldset{
+    outline:none;
+    border:none;
+}
+.data-entry{
+    display:contents;
+}
+.data-entry label{
+    display:inline-block;
+    text-align:right;
+    margin-right:1em;
+}
+.data-entry select, .data-entry input{
+    box-sizing: border-box;
+    width: 100%;
+}
+.crud-panel .valid{
+    padding-left:1em;
+    font-style:italic;
+    color:darkgreen;
+}
+.crud-panel .invalid{
+    padding-left:1em;
+    font-style:italic;
+    color:darkred;
+}
+.schema{
+    margin-top:1em;
+    margin-bottom:1em;
+}
+.crud-panel h3{
+    padding:0;
+    margin:0;
+}
+.crud-panel h3 .schema-info{
+    margin-left:1em;
+    font-weight:normal;
+    color:gray;
+    font-size:0.7em;
+}
+.crud-panel h3 button{
+    margin-right:1em;
+    width:2em;
+}
+.valuemessage:not(:empty)::before{
+    content:'Value(s): ';
+    color: gray;
+    font-size:0.7em;
+    font-weight: bold;
+}

@@ -1,0 +1,61 @@
+.fullpage{
+    display:grid;
+    grid-template-rows: auto 1fr;
+    position:fixed;
+    top:0;
+    left:0;
+    width:100vw;
+    height:100vh;
+}
+.topbar{
+    display:grid;
+    grid-template-columns: auto 1fr auto;
+    padding:0.2em 0.8em;
+    background-color:rgb(50, 36, 87);
+    align-items: center;
+    /* z-index:1; */
+    height:2.5em;
+}
+.topbar img{
+    height:2em;
+}
+.topbar .homelink{
+    color:white;
+    text-decoration: none;
+    font-weight:bold;
+}
+.app{
+    box-sizing: border-box;
+    /* background-color:rgb(254, 175, 216); */
+    /* background-color: rgb(212, 212, 212); */
+    overflow:auto;
+    display:grid;
+    grid-template-rows:1fr;
+}
+.centeredWrapper{
+    background-color: rgb(212, 212, 212);
+}
+.centered{
+    width:960px;
+    margin:0 auto;
+    background-color:white;
+    color:black;
+}
+
+.leftNavLayout{
+    display:grid;
+    grid-template-columns: auto 1fr;
+    border-right:thin gray solid;
+    min-width: 0;
+}
+.leftNavLink{
+    display:block;
+}
+.leftNav{
+    border-right:thin gray solid;
+    padding:1em 2em;
+}
+.leftNavMain{
+    padding:1em 2em;
+    overflow-x:hidden;
+}

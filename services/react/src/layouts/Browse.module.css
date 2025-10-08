@@ -1,0 +1,11 @@
+.layout{
+    display:grid;
+    grid-template-columns:15em 1fr;
+}
+.left{
+    border-right:thin gray solid;
+    padding:1em;
+}
+.main{
+
+}

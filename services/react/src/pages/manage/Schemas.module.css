@@ -1,0 +1,14 @@
+.links{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:10px;
+}
+.links div{
+    padding:50px 10px;
+    text-align:center;
+    text-decoration: none;
+    background-color:blanchedalmond;
+    font-weight:bold;
+    border:thin black solid;
+    border-radius:10px;
+}
