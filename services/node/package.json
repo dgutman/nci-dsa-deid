@@ -1,0 +1,39 @@
+{
+  "name": "nodejs-image-demo",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "nodejs image demo",
+  "author": "Thomas Pearce",
+  "license": "MIT",
+  "main": "app.js",
+  "scripts": {
+    "start.prod": "node nodejs/app.js",
+    "start.dev": "nodemon nodejs/app.js --legacy-watch --ignore nodejs/public/",
+    "start.test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "nodejs",
+    "bootstrap",
+    "express"
+  ],
+  "dependencies": {
+    "axios": "^0.21.0",
+    "axios-cookiejar-support": "4.0.6",
+    "crypto-js": "4.1.1",
+    "csv-parser": "^3.0.0",
+    "ejs": "^3.1.5",
+    "express": "^4.16.4",
+    "express-generator": "^4.16.1",
+    "express-ws": "^5.0.2",
+    "fast-xml-parser": "^4.2.2",
+    "form-data": "^4.0.0",
+    "mongoose": "^5.11.13",
+    "multer": "^1.4.2",
+    "node-fetch": "2.6.9",
+    "xml-js": "1.6.11",
+    "ws":"8.16.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.20"
+  }
+}
