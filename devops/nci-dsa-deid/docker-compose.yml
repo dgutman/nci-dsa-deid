@@ -26,14 +26,13 @@ services:
       GIRDER_SETTING_SERVER_MODE: development
       api_root: /girder/api/v1
       static_public_path: /girder/static
-     
+
     restart: unless-stopped
     # Set DSA_PORT to expose the interface on another port (default 8080).
-      
+
 
     extra_hosts:
-     - "host.docker.internal:host-gateway"
-
+      - "host.docker.internal:host-gateway"
 
     ports:
       - "${DSA_PORT:-8080}:8080"
@@ -67,7 +66,6 @@ services:
       - rabbitmq
     command: /opt/digital_slide_archive/devops/dsa/start_girder.sh
 
-    
   nginx:
     image: nginx:1.27.1
     restart: unless-stopped
@@ -76,19 +74,18 @@ services:
       # - USE_HTTPS=${USE_HTTPS:-} # If USE_HTTPS is defined and has any value, nginx will listen on port 443 and look for ssl certificate files
       # - SSL_CERT_FILE=${SSL_CERT_FILE:-certificate.cer} # the name of the certificate file (within services/nginx/ssl)
       # - SSL_KEY_FILE=${SSL_KEY_FILE:-certificate.key} # the name of the key file (within services/nginx/ssl)
-    ports: 
-      - 8090:80  ## NGINX WILL BE ON PORT 8090 for this NCI STACK
+    ports:
+      - 8090:80 ## NGINX WILL BE ON PORT 8090 for this NCI STACK
       # - "${HTTP_PORT:-80}:80"
       # - "${HTTPS_PORT:-443}:443"
     depends_on:
       - girder
-      
-      
-      
+
     volumes:
-      - ../../services/nginx/nginx.conf:/etc/nginx/nginx.conf 
+      - ../../services/nginx/nginx.conf:/etc/nginx/nginx.conf
       - ../../services/nginx/redirect_http.conf:/etc/nginx/conf.d/redirect_http.conf
       - ../../services/nginx/use_https.conf:/etc/nginx/conf.d/use_https.conf
+      - ../../services/nginx/index.html:/etc/nginx/html/index.html
       # - ../services/nginx/templates/envvar.conf.template:/etc/nginx/templates/envvar.conf.template
       # - ../services/nginx/templates/redirect_http.${REDIRECT_HTTP:-no}.conf.template:/etc/nginx/templates/redirect_http.conf.template 
       # - ../services/nginx/templates/use_https.${USE_HTTPS:-no}.conf.template:/etc/nginx/templates/use_https.conf.template 
@@ -188,16 +185,36 @@ services:
     image: dagutman/dashncidsadeidapp
     build:
       context: ../../services/dashdeid
-      
+
     ports:
       - "8050:8050"
     environment:
       - REQUESTS_PREFIX=/deid/
       - DSA_API_URL=http://girder:8080/api/v1
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+    volumes:
+      - ../../services/dashdeid:/app
     restart: unless-stopped
+  react:
+    image: bdsa/bdsa-react:0.0.4
+    build:
+      context: ../../services/react
+      args:
+        - NODE_ENV=development
+    working_dir: /home/react/app/
+    restart: unless-stopped
+    environment:
+      - REACT_APP_API_ROOT=/api
+      - REACT_APP_DSA_ROOT=/dsa
+    volumes:
+      - ../../services/react:/home/react/app/
+      - /home/react/app/node_modules/
+    command: npm start
+
   node:
     image: bdsa/bdsa-node:0.0.1
-    build: 
+    build:
       context: ../../services/node
       args:
         - NODE_ENV=development

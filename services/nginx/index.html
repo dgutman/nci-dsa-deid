@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NCI DSA DeID Stack</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+            margin: 0;
+            padding: 1rem;
+            overflow-x: hidden;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 1200px;
+            width: 100%;
+            max-width: min(1200px, 95vw);
+            backdrop-filter: blur(10px);
+        }
+
+        .logo {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .nci-logo {
+            height: 50px;
+            width: auto;
+            margin-left: 120px;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: #7f8c8d;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        .description {
+            font-size: 1rem;
+            color: #34495e;
+            margin-bottom: 2.5rem;
+            line-height: 1.8;
+            text-align: left;
+        }
+
+        .services {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            max-width: 100%;
+        }
+
+        .service-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 15px;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: #2c3e50;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .service-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            border-color: #3498db;
+            text-decoration: none;
+            color: #2c3e50;
+        }
+
+        .service-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .service-description {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+            line-height: 1.4;
+        }
+
+        .status {
+            background: #27ae60;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            display: inline-block;
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-bottom: 2rem;
+        }
+
+        .footer {
+            font-size: 0.8rem;
+            color: #95a5a6;
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid #ecf0f1;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1.5rem;
+                margin: 0.5rem;
+            }
+
+            .logo {
+                font-size: 2rem;
+            }
+
+            .nci-logo {
+                height: 40px;
+            }
+
+            .services {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="logo">
+            <img src="https://www.cancer.gov/sites/g/files/xnrzdm211/files/ncids_header/logos/Logo_NCI.svg"
+                alt="NCI Logo" class="nci-logo">
+            NCI DSA DeID Stack
+        </div>
+        <div class="subtitle">Digital Slide Archive Deidentification Platform</div>
+
+        <div class="status">🟢 System Online</div>
+
+        <div class="description">
+            This platform provides a comprehensive deidentification workflow for the NCI Digital Slide Archive.
+            Our tools enable secure processing and management of medical imaging data while maintaining
+            patient privacy and regulatory compliance.
+        </div>
+
+        <div class="services">
+            <a href="/dsa" class="service-card">
+                <div class="service-title">📁 Digital Slide Archive</div>
+                <div class="service-description">Access and manage digital pathology slides with advanced viewing
+                    capabilities</div>
+            </a>
+
+            <a href="/deid" class="service-card">
+                <div class="service-title">🔒 DeID Dashboard</div>
+                <div class="service-description">Process and deidentify medical images with automated workflow tools
+                </div>
+            </a>
+
+            <!-- <a href="/api" class="service-card">
+                <div class="service-title">⚙️ API Services</div>
+                <div class="service-description">RESTful API endpoints for programmatic access to system resources</div>
+            </a> -->
+        </div>
+
+        <div class="footer">
+            <p>National Cancer Institute • Digital Slide Archive • Deidentification Platform</p>
+            <p>For technical support, contact your system administrator</p>
+        </div>
+    </div>
+</body>
+
+</html>

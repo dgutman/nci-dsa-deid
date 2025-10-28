@@ -19,6 +19,8 @@ from dash_iconify import DashIconify
 import json
 import dash_mantine_components as dmc
 import dash_ag_grid as dag
+import pandas as pd
+import io
 
 # from settings import gc
 from girder_client import HttpError
@@ -33,35 +35,36 @@ SIDEBAR_COLLAPSED = {
     "left": "-27rem",  # Adjust this value so a portion of the sidebar remains visible
     "bottom": 0,
     "height": "100%",
-    "z-index": 1,
-    "overflow-x": "hidden",
+    "zIndex": 1,
+    "overflowX": "hidden",
     "transition": "all 0.5s",
     "padding": "0rem 0rem",
-    "background-color": "#f8f9fa",
+    "backgroundColor": "#f8f9fa",
 }
 # Define the new style for the toggle button and the vertical text
 TOGGLE_BUTTON_STYLE = {
-    "z-index": 2,  # This ensures the button is above other elements
+    "zIndex": 2,  # This ensures the button is above other elements
 }
 
 VERTICAL_TEXT_STYLE = {
     "top": "50%",
     "left": "10px",
     "transform": "translateY(-50%) rotate(-90deg)",
-    "z-index": 1,  # Below the toggle button but above other elements
-    "white-space": "nowrap",
-    "font-weight": "bold",
+    "zIndex": 1,  # Below the toggle button but above other elements
+    "whiteSpace": "nowrap",
+    "fontWeight": "bold",
 }
 ## If level=1 it means it's a root folder for a collection
 
 
 CONTENT_STYLE = {
-    "transition": "margin-left .5s",
-    "margin-left": "-1rem",  # Adjusted from 32rem
-    "margin-right": "2rem",
+    "transition": "marginLeft .5s",
+    "marginLeft": "-1rem",  # Adjusted from 32rem
+    "marginRight": "2rem",
     "padding": "0rem 0rem",
-    "background-color": "#f8f9fa",
-    "width": "580px",
+    "backgroundColor": "#f8f9fa",
+    "width": "100%",
+    "minWidth": "600px",
 }
 
 
@@ -83,10 +86,10 @@ def folder_div(collection_folder, folder_cache):
                 n_clicks=0,
                 variant="subtle",
                 style={
-                    "text-align": "left",
-                    "margin-left": f"{20*level-25}px",
+                    "textAlign": "left",
+                    "marginLeft": f"{20*level-25}px",
                     "padding": "2px 8px",
-                    "font-size": "1rem",
+                    "fontSize": "1rem",
                     "height": "20px",
                 },
             ),
@@ -96,12 +99,12 @@ def folder_div(collection_folder, folder_cache):
                     "id": collection_folder["_id"],
                     "level": level,
                 },
-                style={"margin-left": f"{20*(level)-10}px"},
+                style={"marginLeft": f"{20*(level)-10}px"},
             ),
         ],
         style={
-            "margin-top": "-4px",
-            "margin-bottom": "-4px",
+            "marginTop": "-4px",
+            "marginBottom": "-4px",
         },  # Adjust these values as needed
     )
 
@@ -170,19 +173,19 @@ tree_layout = html.Div(
     ],
     style={
         "display": "flex",
-        "background-color": "#f8f9fa",
+        "backgroundColor": "#f8f9fa",
         "height": "100%",
-        "overflow-y": "scroll",
+        "overflowY": "scroll",
     },
 )
 
 
-record_match_status = html.Div(id="file-match-info", style={"margin-left": "50px"})
+record_match_status = html.Div(id="file-match-info", style={"marginLeft": "50px"})
 
 
-content = dbc.Row(
+content = html.Div(
     [
-        dbc.Col(
+        html.Div(
             [
                 html.Div(
                     id="itemListinfo",
@@ -237,10 +240,11 @@ content = dbc.Row(
                     style=CONTENT_STYLE,
                 )
             ],
-            width=8,
+            style={"flex": "1", "minWidth": "0"},
         ),
-        dbc.Col([record_match_status], width=3),
-    ]
+        html.Div([record_match_status], style={"flex": "0 0 300px", "marginLeft": "20px"}),
+    ],
+    style={"display": "flex", "width": "100%", "height": "100%"}
 )
 
 sidebar = html.Div(
@@ -254,9 +258,9 @@ sidebar = html.Div(
         "border": "4px solid #ddd",  # Optional: adds a border around the div
         "margin": "1px",  # Adjust the margin here
         "padding": "1px",
-        "box-shadow": "none",  # Adjust the padding here
+        "boxShadow": "none",  # Adjust the padding here
         "height": "100%",
-        "background-color": "#f8f9fa",
+        "backgroundColor": "#f8f9fa",
     },
 )
 
@@ -266,11 +270,11 @@ dsaFileTree_layout = html.Div(
         dcc.Store(id="side_click"),
         dcc.Location(id="url"),
         html.Div(
-            [html.Div(sidebar, style={"marginRight": 15}), content],
-            style={"display": "flex"},
+            [html.Div(sidebar, style={"marginRight": 15, "minWidth": "250px", "maxWidth": "300px"}), content],
+            style={"display": "flex", "width": "100%", "height": "100%"},
         ),
     ],
-    style={"height": "100%"},
+    style={"height": "100%", "width": "100%"},
 )
 
 
@@ -286,6 +290,14 @@ slideListTab_content = html.Div(
                             className="me-2",
                             style={"maxWidth": 300},
                         ),
+                        dbc.Button(
+                            "Download Template",
+                            id="download-template-button",
+                            className="me-2",
+                            color="success",
+                            style={"maxWidth": 300},
+                            disabled=True,
+                        ),
                         html.Div(id="current_selected_folder"),
                     ]
                 ),
@@ -293,6 +305,7 @@ slideListTab_content = html.Div(
             className="mt-4",
         ),
         dsaFileTree_layout,
+        dcc.Download(id="download-template-csv"),
     ],
     style={"height": "100%"},
 )
@@ -327,6 +340,63 @@ def update_file_match_info(metadata, itemList):
         [html.H5("No Metadata or Item List Data", className="alert alert-danger")],
         className="my-3",
     )
+
+
+@callback(
+    Output("download-template-button", "disabled"),
+    Input("itemList_store", "data"),
+)
+def update_download_button_state(itemList):
+    if not itemList:
+        return True
+    
+    # Enable button if there are any files with "No Match" status
+    no_match_files = [item for item in itemList if item.get("match_result") == "No Match"]
+    return len(no_match_files) == 0
+
+
+@callback(
+    Output("download-template-csv", "data"),
+    Input("download-template-button", "n_clicks"),
+    State("itemList_store", "data"),
+    prevent_initial_call=True,
+)
+def download_template_csv(n_clicks, itemList):
+    if not n_clicks or not itemList:
+        return no_update
+    
+    # Filter for files with "No Match" status
+    no_match_files = [item for item in itemList if item.get("match_result") == "No Match"]
+    
+    if not no_match_files:
+        return no_update
+    
+    # Create template data
+    template_data = []
+    for i, item in enumerate(no_match_files, 1):
+        filename = item.get("name", "")
+        # Generate a sample ID from filename (you can customize this logic)
+        sample_id = filename.split("-")[0] if "-" in filename else f"SAMPLE_{i:03d}"
+        
+        template_data.append({
+            "InputFileName": filename,
+            "SampleID": sample_id,
+            "REPOSITORY": "DCEG",
+            "STUDY": "MR-0600",
+            "PROJECT": "HP0600-001",
+            "CASE": "TestProject",
+            "BLOCK": f"BR{i:04d}",
+            "ASSAY": "H&E",
+            "INDEX": str(i),
+            "ImageID": "SA",
+            "OutputFileName": f"{sample_id}.S{i}.DEID.svs"
+        })
+    
+    # Create DataFrame and convert to CSV
+    df = pd.DataFrame(template_data)
+    csv_string = df.to_csv(index=False)
+    
+    return dict(content=csv_string, filename="metadata_template.csv")
 
 
 ### CALLBACKS
@@ -391,21 +461,21 @@ def update_folder_styles_and_icons(n_clicks, folder_id, last_clicked_folder_data
     if last_clicked_id == folder_id["id"]:
         style = {
             "color": "green",
-            "font-size": "1rem",
+            "fontSize": "1rem",
             "height": "20px",
             "padding": "2px 8px",
         }
     elif last_clicked_id:
         style = {
             "color": "blue",
-            "font-size": "1rem",
+            "fontSize": "1rem",
             "height": "20px",
             "padding": "2px 8px",
         }
     else:
         style = {
             "color": "blue",
-            "font-size": "1rem",
+            "fontSize": "1rem",
             "height": "20px",
             "padding": "2px 8px",
         }

@@ -35,10 +35,11 @@ def checkForExistingFile(deidOutputFileName):
 
     folders = (
         "/collection/WSI DeID/Approved",
-        "/collection/WSI DeID/Redacted",
+        "/collection/WSI DeID/Redacted", 
         "/collection/WSI DeID/AvailableToProcess",
     )
 
+    # First check by exact filename match
     searchStatus = lookupDSAresource(deidOutputFileName, limit=0)
 
     if searchStatus:
@@ -47,6 +48,22 @@ def checkForExistingFile(deidOutputFileName):
 
             if resourcePath.startswith((folders)):
                 return resourcePath
+
+    # Also check for files with (1), (2), etc. suffixes that might be duplicates
+    base_name = deidOutputFileName.rsplit('.', 1)[0] if '.' in deidOutputFileName else deidOutputFileName
+    extension = '.' + deidOutputFileName.rsplit('.', 1)[1] if '.' in deidOutputFileName else ''
+    
+    # Search for potential duplicates with number suffixes
+    for i in range(1, 10):  # Check for (1) through (9)
+        potential_duplicate = f"{base_name} ({i}){extension}"
+        searchStatus = lookupDSAresource(potential_duplicate, limit=0)
+        
+        if searchStatus:
+            for item in searchStatus.get("item", []):
+                resourcePath = getGc().get(f"resource/{item['_id']}/path?type=item")
+                if resourcePath.startswith((folders)):
+                    print(f"Found potential duplicate: {potential_duplicate} at {resourcePath}")
+                    return resourcePath
 
     return None
 
@@ -61,8 +78,13 @@ checklist = html.Div(
                     "value": "batchSubmit_atp",
                 },
                 {"label": "BruteForce Redacted", "value": "batchSubmit_redacted"},
+                {
+                    "label": "Skip files already in workflow (recommended)",
+                    "value": "skip_existing",
+                },
             ],
             id="deid-flag-inputs",
+            value=["skip_existing"],  # Default to checked
         ),
     ],
     style={"display": "none"},
@@ -159,7 +181,7 @@ def getUnfiledFolder(gc):
 
 
 ## TO DO.. ADD MORE LOGIC HERE
-def submitImageForDeId(row):
+def submitImageForDeId(row, skip_existing=True):
     # Your logic for submitting the image for DeID goes here
     ## So check if file is already un the unfiled Directory.. if so just use that..
     # Get list of images in the unfiled folder.
@@ -171,9 +193,24 @@ def submitImageForDeId(row):
     unfiledItemList = list(getGc().listItem(DSA_UNFILED_FOLDER))
 
     originalItemId_to_unfiledItemId = {}
+    outputFileName_to_unfiledItemId = {}
 
     for x in unfiledItemList:
         originalItemId_to_unfiledItemId[x.get("copyOfItem", None)] = x
+        # Also check by output filename to prevent duplicates
+        if "deidUpload" in x.get("meta", {}):
+            outputFileName = x["meta"]["deidUpload"].get("OutputFileName")
+            if outputFileName:
+                outputFileName_to_unfiledItemId[outputFileName] = x
+
+    # Check if this specific output filename already exists
+    outputFileName = row.get("OutputFileName")
+    if outputFileName and outputFileName in outputFileName_to_unfiledItemId:
+        if skip_existing:
+            print(f"File with output name '{outputFileName}' already exists in unfiled folder, skipping duplicate")
+            return  # Skip creating duplicate
+        else:
+            print(f"File with output name '{outputFileName}' already exists in unfiled folder, but skip_existing is disabled - proceeding anyway")
 
     if row["_id"] not in originalItemId_to_unfiledItemId:
         itemCopyToUnfiled = getGc().post(
@@ -335,6 +372,14 @@ def submit_for_deid(n_clicks, data, deidFlags, metadataList, loginState):
     ## Need to turn this into an array it it's null
     if not deidFlags:
         deidFlags = []
+    
+    # Check if skip_existing flag is set
+    skip_existing = "skip_existing" in deidFlags
+    
+    # Count files that will be skipped
+    skipped_count = 0
+    submitted_count = 0
+    
     for row in data:
         ### Check for valid metadata
         print("processing row", row)
@@ -353,20 +398,45 @@ def submit_for_deid(n_clicks, data, deidFlags, metadataList, loginState):
 
             elif curDsaPath.startswith("/collection/WSI DeID/AvailableToProcess"):
                 row["deidStatus"] = "AvailableToProcess Folder"
+            
+            # If skip_existing is enabled and file is already in workflow, skip it
+            if skip_existing and curDsaPath:
+                row["deidStatus"] = "SKIPPED - Already in Workflow"
+                skipped_count += 1
+                continue
 
         elif row.get("deidStatus", None) in ["FileType Not Supported"]:
             row["deidStatus"] = "SKIPPED"
 
         elif row.get("match_result") in ["Match", "NoMeta"]:
-            submitImageForDeId(row)
+            # Check if we should skip existing files
+            if skip_existing:
+                # Double-check if file already exists in workflow
+                existing_file = checkForExistingFile(row.get("OutputFileName", ""))
+                if existing_file:
+                    row["deidStatus"] = "SKIPPED - Already in Workflow"
+                    skipped_count += 1
+                    continue
+            
+            submitImageForDeId(row, skip_existing)
             row["deidStatus"] = "Submitted"
+            submitted_count += 1
         else:
             row["deidStatus"] = "SKIPPED"
 
     processDeIDset(data, deidFlags)
 
+    # Create notification with results
+    notification = dmc.Notification(
+        title="Submission Complete",
+        action="show",
+        id="simple-notify",
+        message=f"Submitted: {submitted_count} files, Skipped: {skipped_count} files (already in workflow)" if skip_existing else f"Submitted: {submitted_count} files",
+        icon=DashIconify(icon="ic:round-check-circle"),
+    )
+
     # Re-enable the button after processing
-    return data, False, no_update
+    return data, False, notification
 
 
 def processDeIDset(data, deID_flags):
@@ -392,27 +462,36 @@ def processDeIDset(data, deID_flags):
 
 @callback(Output("currentItemMacro", "src"), Input("merged-datagrid", "selectedRows"))
 def displayMacroForSelectedRow(selected):
-    if selected:
-        thumbSrc = hlprs.get_thumbnail_as_b64(selected[0]["_id"])
-        return thumbSrc
-    ## TO FIX --- double check girder client token
+    if selected and len(selected) > 0:
+        try:
+            thumbSrc = hlprs.get_thumbnail_as_b64(selected[0]["_id"])
+            return thumbSrc
+        except Exception as e:
+            print(f"Error getting thumbnail: {e}")
+            return None
+    return None
 
 
 @callback(
     Output("currentItemThumbnail", "src"), Input("merged-datagrid", "selectedRows")
 )
 def displayThumbnailForSelectedRow(selected):
-    if selected:
-        selected = selected[0]  ## Only returns a single row, but it's an array
-        ### Hack for now  so I copy over the metadata needed..
-        selected["meta"]["deidUpload"] = selected
-        outputFileName = selected["meta"]["deidUpload"].get(
-            "OutputFileName", "WrongTag"
-        )
-        deidBarCode = hlprs.add_barcode_to_image(
-            selected, outputFileName, item=selected
-        )
+    if selected and len(selected) > 0:
+        try:
+            selected = selected[0]  ## Only returns a single row, but it's an array
+            ### Hack for now  so I copy over the metadata needed..
+            selected["meta"]["deidUpload"] = selected
+            outputFileName = selected["meta"]["deidUpload"].get(
+                "OutputFileName", "WrongTag"
+            )
+            deidBarCode = hlprs.add_barcode_to_image(
+                selected, outputFileName, item=selected
+            )
 
-        encoded_image = hlprs.image_to_base64(deidBarCode)
+            encoded_image = hlprs.image_to_base64(deidBarCode)
 
-        return f"data:image/png;base64,{encoded_image}"
+            return f"data:image/png;base64,{encoded_image}"
+        except Exception as e:
+            print(f"Error generating thumbnail: {e}")
+            return None
+    return None

@@ -18,7 +18,7 @@ gc = girder_client.GirderClient(apiUrl=DSA_BASE_URL)
 ## Figure out the session related context here
 login_state = dcc.Store(
     id="login-state",
-    storage_type="memory",
+    storage_type="local",
     data={"logged_in": False, "username": None},
 )
 
@@ -34,8 +34,9 @@ def getGc(apiKey=None, username=None, password=None, logOut=False):
             gc.authenticate(apiKey=apiKey)
         except Exception as e:
             print(f"Error authenticating with API key: {e}")
-            # gc.token = ""
-            # gc.session = ""
+            gc.token = ""
+            gc.session = ""
+            raise e
 
     elif logOut:
         gc.token = ""
@@ -45,8 +46,9 @@ def getGc(apiKey=None, username=None, password=None, logOut=False):
             gc.authenticate(username=username, password=password)
         except Exception as e:
             print(f"Error authenticating with username and password: {e}")
-            # gc.token = ""
-            # gc.session = ""
+            gc.token = ""
+            gc.session = ""
+            raise e
 
     return gc
 
@@ -128,15 +130,32 @@ dsa_login_panel = dmc.Grid(
 dsa_login_panel = dbc.Container(
     [dsa_login_panel, login_state],
     fluid=True,
-    style={"padding-top": "20px"},
+    style={"paddingTop": "20px"},
 )
 
 
 @callback(
     [
-        Output("login-state", "data"),
         Output("login-logout-button", "children"),
         Output("userNameDisplay_text", "children"),
+    ],
+    [
+        Input("login-state", "data"),
+    ],
+    prevent_initial_call=False,
+)
+def update_login_display(login_state):
+    """Update the login display based on stored login state"""
+    if login_state and login_state.get("logged_in", False):
+        username = login_state.get("username", "Unknown")
+        return "Logout", f"Logged in as: {username}"
+    else:
+        return "Login", "Logged out"
+
+
+@callback(
+    [
+        Output("login-state", "data"),
         Output("login-modal", "is_open"),
         Output("login-notification-body", "children"),
     ],
@@ -167,12 +186,11 @@ def login_logout(
     ## This should allow me to login automagically if the env key is set
     if not ctx.triggered:
         if s.DSAKEY:
+            global gc
             gc = getGc(apiKey=s.DSAKEY)
             tokenOwner = gc.get("user/me")["login"]
             return (
                 {"logged_in": True, "username": tokenOwner},
-                "Logout",
-                f"Logged in as: {tokenOwner}",
                 False,
                 "",
             )
@@ -181,8 +199,6 @@ def login_logout(
                 "logged_in": False,
                 "username": None,
             },  ## Update the store letting me know I logged out
-            dash.no_update,
-            dash.no_update,
             dash.no_update,
             dash.no_update,
         )
@@ -197,12 +213,10 @@ def login_logout(
             ## NEED TO SEE IF THIS ACTUALLY LOGS OUT THE SESSION OR RECONNECTS AS NO
             return (
                 {"logged_in": False, "username": None},
-                "Login",
-                "Logged out",
                 True,
                 "",
             )
-        return dash.no_update, dash.no_update, dash.no_update, True, ""
+        return dash.no_update, True, ""
     elif button_id == "authenticate-button":
         if username and password:
             try:
@@ -210,8 +224,6 @@ def login_logout(
                 ## TO DO... Catch if the login fails
                 return (
                     {"logged_in": True, "username": username},
-                    "Logout",
-                    f"Logged in as: {username}",
                     False,
                     "",
                 )
@@ -219,14 +231,10 @@ def login_logout(
                 return (
                     dash.no_update,
                     dash.no_update,
-                    dash.no_update,
-                    dash.no_update,
                     "Login failed. Please check your credentials.",
                 )
 
     return (
-        dash.no_update,
-        dash.no_update,
         dash.no_update,
         dash.no_update,
         dash.no_update,

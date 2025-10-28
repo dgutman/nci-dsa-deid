@@ -121,6 +121,10 @@ def process_row(row, COLS_FOR_COPY, metadataDict):
 
             elif deidFileStatus.startswith("/collection/WSI DeID/AvailableToProcess"):
                 row["deidStatus"] = "AvailableToProcess Folder"
+            
+            # Check if this is a duplicate (has number suffix)
+            if "(" in deidFileStatus and ")" in deidFileStatus:
+                row["deidStatus"] = "DUPLICATE - Already in Workflow"
 
             if "deidStatus" in row:
                 row["curDsaPath"] = deidFileStatus
