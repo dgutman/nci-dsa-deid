@@ -123,28 +123,44 @@ def add_barcode_to_image(
         targetW - titleH - logoImg.size[1]
     )  # space between title and logo
 
+    # Generate barcode with error handling
     barcodeData = encode_barcode_string(item, keysForBarcode)
-    encoded = encode(barcodeData.encode("utf8"))
-    img = Image.frombytes("RGB", (encoded.width, encoded.height), encoded.pixels)
+    
+    if barcodeData:
+        try:
+            # Try to encode the barcode
+            encoded = encode(barcodeData.encode("utf8"))
+            
+            if not encoded or not encoded.pixels:
+                raise ValueError("pylibdmtx encode returned empty result")
+            
+            img = Image.frombytes("RGB", (encoded.width, encoded.height), encoded.pixels)
 
-    barcode_aspect_ratio = encoded.width / encoded.height
-    max_barcode_width = int(available_height * barcode_aspect_ratio)
+            barcode_aspect_ratio = encoded.width / encoded.height
+            max_barcode_width = int(available_height * barcode_aspect_ratio)
 
-    # If the barcode width after resizing exceeds the target width, adjust the available height
-    if max_barcode_width > targetW:
-        available_height = int(targetW / barcode_aspect_ratio)
-        max_barcode_width = targetW
+            # If the barcode width after resizing exceeds the target width, adjust the available height
+            if max_barcode_width > targetW:
+                available_height = int(targetW / barcode_aspect_ratio)
+                max_barcode_width = targetW
 
-    barcode_resized = img.resize((max_barcode_width, available_height))
+            barcode_resized = img.resize((max_barcode_width, available_height))
 
-    ## Since I know the width, I can figure out the encoded width, and then try and center the barcode
-    # Place the resized barcode in the center
-    barcodeXoffset = (targetW - barcode_resized.width) // 2
-    barcodeYoffset = (
-        titleH + (available_height - barcode_resized.height) // 2
-    )  ## Moving it down a bit more
-    newImage.paste(barcode_resized, (barcodeXoffset, barcodeYoffset))
-    print(barcodeYoffset, "is title height offset")
+            ## Since I know the width, I can figure out the encoded width, and then try and center the barcode
+            # Place the resized barcode in the center
+            barcodeXoffset = (targetW - barcode_resized.width) // 2
+            barcodeYoffset = (
+                titleH + (available_height - barcode_resized.height) // 2
+            )  ## Moving it down a bit more
+            newImage.paste(barcode_resized, (barcodeXoffset, barcodeYoffset))
+            print(barcodeYoffset, "is title height offset")
+        except Exception as e:
+            # If barcode encoding fails, log the error but continue without barcode
+            print(f"Warning: Failed to encode barcode: {e}")
+            print(f"Barcode data was: {barcodeData[:100]}...")  # Print first 100 chars for debugging
+            # Continue without barcode - image will still have title and logo
+    else:
+        print("Warning: No barcode data available, skipping barcode generation")
     # barcodeXoffset = int((targetW - encoded.width) / 2)
     # newImage.paste(img, (barcodeXoffset, int(minWidth / 6)))
 
@@ -210,17 +226,46 @@ def encode_barcode_string(item, keys_to_encode):
     TODO: Figure out the max # of characters that can be in the output string before the barcode generation
     starts getting out of hand, I don't want a 4kx4k barcode
 
+    :returns: barcode string or None if metadata is missing/invalid
     """
-    # print(item)
+    # Check if item has metadata
+    if not item or "meta" not in item:
+        print("Warning: Item missing 'meta' field, cannot generate barcode")
+        return None
+    
+    if "deidUpload" not in item.get("meta", {}):
+        print("Warning: Item missing 'deidUpload' metadata, cannot generate barcode")
+        return None
+    
     deidDict = item["meta"]["deidUpload"]
     ### We are placing the validated schema data at item.meta.deidUpload
 
+    if not deidDict:
+        print("Warning: 'deidUpload' metadata is empty, cannot generate barcode")
+        return None
+
     barcodeText = ""
     for k in keys_to_encode:
-        if k in deidDict:
+        if k in deidDict and deidDict[k] is not None and deidDict[k] != "" and deidDict[k] != " ":
             barcodeText += "%s,%s|" % (k, deidDict[k])
-    # print(barcodeText)
-    return barcodeText[:-1]  ## Strip off the final |
+    
+    # Check if we have any data to encode
+    if not barcodeText:
+        print("Warning: No valid barcode data found in metadata")
+        return None
+    
+    # Strip off the final |
+    barcodeText = barcodeText[:-1]
+    
+    # Check barcode length - pylibdmtx has limits
+    # DataMatrix can encode up to ~3116 numeric or ~2335 alphanumeric characters
+    # But we want to keep it reasonable to avoid huge barcodes
+    MAX_BARCODE_LENGTH = 2000  # Reasonable limit
+    if len(barcodeText) > MAX_BARCODE_LENGTH:
+        print(f"Warning: Barcode data too long ({len(barcodeText)} chars), truncating to {MAX_BARCODE_LENGTH}")
+        barcodeText = barcodeText[:MAX_BARCODE_LENGTH]
+    
+    return barcodeText
 
 
 

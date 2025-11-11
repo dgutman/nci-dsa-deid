@@ -196,6 +196,21 @@ services:
     volumes:
       - ../../services/dashdeid:/app
     restart: unless-stopped
+  reactdeid:
+    image: reactdeid:latest
+    build:
+      context: ../../services/reactdeid
+      args:
+        - NODE_ENV=development
+    working_dir: /home/reactdeid/app/
+    restart: unless-stopped
+    environment:
+      - VITE_DSA_API_URL=http://girder:8080/api/v1
+    volumes:
+      - ../../services/reactdeid:/home/reactdeid/app/
+      - /home/reactdeid/app/node_modules/
+    ports:
+      - "5173:5173"
   react:
     image: bdsa/bdsa-react:0.0.4
     build:
