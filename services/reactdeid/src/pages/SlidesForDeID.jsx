@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { FolderBrowser, useDsaAuth } from 'bdsa-react-components'
 import { AgGridReact } from 'ag-grid-react'
 import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community'
 import { themeQuartz } from 'ag-grid-community'
 import Papa from 'papaparse'
 import config from '../config'
+import { checkForExistingFile } from '../utils/duplicateDetection'
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule])
@@ -391,11 +393,28 @@ function SlidesForDeID() {
 
       let stagedCount = 0
       let skippedCount = 0
+      let duplicateCount = 0
       const errors = []
+      const duplicateWarnings = []
 
       // Process each matched item
       for (const item of matchedItems) {
         try {
+          // Check if file already exists in workflow folders (Approved, Redacted, AvailableToProcess)
+          const existingCheck = await checkForExistingFile(
+            item.OutputFileName,
+            apiBaseUrl,
+            apiHeaders
+          )
+
+          if (existingCheck.exists) {
+            duplicateCount++
+            duplicateWarnings.push(
+              `${item.name}: OutputFileName "${item.OutputFileName}" already exists in ${existingCheck.status || 'workflow'} folder`
+            )
+            continue // Skip this file
+          }
+
           // Check if file already exists in Unfiled by output filename
           const unfiledItemsResponse = await fetch(
             `${apiBaseUrl}/item?folderId=${unfiledFolderId}&limit=1000`,
@@ -479,18 +498,36 @@ function SlidesForDeID() {
           if (refileResponse.ok) {
             const refiledItem = await refileResponse.json()
             
-            // After refiling, add filtered metadata with only barcode keys
+            // After refiling, we need to preserve existing metadata and add/update barcode keys
+            // First, get the current metadata to preserve OutputFileName and other fields
+            const currentMetaResponse = await fetch(
+              `${apiBaseUrl}/item/${refiledItem._id}/metadata`,
+              { headers: apiHeaders }
+            )
+            
+            let existingDeidUpload = {}
+            if (currentMetaResponse.ok) {
+              const currentMeta = await currentMetaResponse.json()
+              existingDeidUpload = currentMeta?.meta?.deidUpload || {}
+            }
+            
             // These are the keys used for barcode encoding: ASSAY, BLOCK, CASE, INDEX, PROJECT, REPOSITORY, STUDY
             const keysForBarcode = ['ASSAY', 'BLOCK', 'CASE', 'INDEX', 'PROJECT', 'REPOSITORY', 'STUDY']
-            const metaForBarcode = {}
             
+            // Merge barcode keys into existing metadata (preserve OutputFileName, InputFileName, etc.)
+            const updatedDeidUpload = { ...existingDeidUpload }
             keysForBarcode.forEach(key => {
               if (item[key] !== undefined && item[key] !== ' ') {
-                metaForBarcode[key] = item[key]
+                updatedDeidUpload[key] = item[key]
               }
             })
             
-            // Add the filtered metadata to the refiled item
+            // Ensure OutputFileName is preserved if it was in the original metadata
+            if (item.OutputFileName && !updatedDeidUpload.OutputFileName) {
+              updatedDeidUpload.OutputFileName = item.OutputFileName
+            }
+            
+            // Add the merged metadata to the refiled item
             const refiledMetaResponse = await fetch(
               `${apiBaseUrl}/item/${refiledItem._id}/metadata`,
               {
@@ -500,7 +537,7 @@ function SlidesForDeID() {
                   'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                  deidUpload: metaForBarcode
+                  deidUpload: updatedDeidUpload
                 })
               }
             )
@@ -522,11 +559,17 @@ function SlidesForDeID() {
 
       // Show results
       let message = `Staged ${stagedCount} file(s) for DEID.`
+      if (duplicateCount > 0) {
+        message += `\n\n${duplicateCount} file(s) skipped - already exist in workflow:\n${duplicateWarnings.slice(0, 5).join('\n')}`
+        if (duplicateWarnings.length > 5) {
+          message += `\n... and ${duplicateWarnings.length - 5} more`
+        }
+      }
       if (skippedCount > 0) {
-        message += ` ${skippedCount} file(s) already staged (skipped).`
+        message += `\n${skippedCount} file(s) already in Unfiled folder (skipped).`
       }
       if (errors.length > 0) {
-        message += ` ${errors.length} error(s) occurred.`
+        message += `\n${errors.length} error(s) occurred.`
         console.error('Staging errors:', errors)
       }
       
@@ -555,8 +598,367 @@ function SlidesForDeID() {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
   }
 
+  // Thumbnail cell renderer component
+  const ThumbnailCellRenderer = ({ data }) => {
+    const [labelSrc, setLabelSrc] = useState(null)
+    const [macroSrc, setMacroSrc] = useState(null)
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState(null)
+    const [labelMissing, setLabelMissing] = useState(false)
+    const [macroMissing, setMacroMissing] = useState(false)
+    const [hoveredImage, setHoveredImage] = useState(null) // 'label' or 'macro' or null
+    const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 })
+    const labelRef = useRef(null)
+    const macroRef = useRef(null)
+
+    useEffect(() => {
+      if (!data?._id || !authStatus.isAuthenticated) {
+        setLoading(false)
+        return
+      }
+
+      const apiBaseUrl = authStatus.isConfigured 
+        ? getApiUrl('/api/v1')
+        : config.apiBaseUrl
+      const apiHeaders = getAuthHeaders()
+
+      // Fetch label and macro images
+      const fetchImages = async () => {
+        try {
+          setLoading(true)
+          setLabelSrc(null)
+          setMacroSrc(null)
+          setLabelMissing(false)
+          setMacroMissing(false)
+          
+          // Try to fetch label image
+          try {
+            const labelResponse = await fetch(
+              `${apiBaseUrl}/item/${data._id}/tiles/images/label`,
+              { headers: apiHeaders }
+            )
+            if (labelResponse.ok) {
+              const labelBlob = await labelResponse.blob()
+              // Check if the blob is actually an image (not an error page)
+              if (labelBlob.type.startsWith('image/')) {
+                setLabelSrc(URL.createObjectURL(labelBlob))
+                setLabelMissing(false)
+              } else {
+                setLabelMissing(true)
+              }
+            } else if (labelResponse.status === 404) {
+              setLabelMissing(true)
+            } else {
+              // Other error status - mark as missing
+              setLabelMissing(true)
+            }
+          } catch (e) {
+            // Network error or other exception - mark as missing
+            setLabelMissing(true)
+          }
+
+          // Try to fetch macro image
+          try {
+            const macroResponse = await fetch(
+              `${apiBaseUrl}/item/${data._id}/tiles/images/macro`,
+              { headers: apiHeaders }
+            )
+            if (macroResponse.ok) {
+              const macroBlob = await macroResponse.blob()
+              // Check if the blob is actually an image (not an error page)
+              if (macroBlob.type.startsWith('image/')) {
+                setMacroSrc(URL.createObjectURL(macroBlob))
+                setMacroMissing(false)
+              } else {
+                setMacroMissing(true)
+              }
+            } else if (macroResponse.status === 404) {
+              setMacroMissing(true)
+            } else {
+              // Other error status - mark as missing
+              setMacroMissing(true)
+            }
+          } catch (e) {
+            // Network error or other exception - mark as missing
+            setMacroMissing(true)
+          }
+        } catch (err) {
+          console.error('Error fetching thumbnails:', err)
+          setError(err.message)
+        } finally {
+          setLoading(false)
+        }
+      }
+
+      fetchImages()
+
+      // Cleanup object URLs on unmount or when data changes
+      return () => {
+        if (labelSrc) {
+          URL.revokeObjectURL(labelSrc)
+        }
+        if (macroSrc) {
+          URL.revokeObjectURL(macroSrc)
+        }
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [data?._id, authStatus.isAuthenticated])
+
+    if (loading) {
+      return (
+        <div style={{ padding: '4px', textAlign: 'center', fontSize: '0.75rem', color: '#666' }}>
+          Loading...
+        </div>
+      )
+    }
+
+    if (error) {
+      return (
+        <div style={{ padding: '4px', textAlign: 'center', fontSize: '0.75rem', color: '#999' }}>
+          N/A
+        </div>
+      )
+    }
+
+    // Show appropriate message if no images are available
+    if (!loading && !labelSrc && !macroSrc && (labelMissing && macroMissing)) {
+      return (
+        <div style={{ padding: '4px', textAlign: 'center', fontSize: '0.75rem', color: '#999' }}>
+          No images available
+        </div>
+      )
+    }
+
+    const updateHoverPosition = (imageType) => {
+      const ref = imageType === 'label' ? labelRef : macroRef
+      if (!ref.current) return
+      
+      // Get the bounding rect of the thumbnail element
+      const rect = ref.current.getBoundingClientRect()
+      // Position overlay above the thumbnail, centered horizontally
+      const centerX = rect.left + rect.width / 2
+      const topY = rect.top
+      
+      setHoverPosition({
+        x: centerX,
+        y: topY
+      })
+    }
+
+    const handleMouseEnter = (imageType) => {
+      setHoveredImage(imageType)
+      // Use setTimeout to ensure ref is set
+      setTimeout(() => updateHoverPosition(imageType), 0)
+    }
+
+    const handleMouseLeave = () => {
+      setHoveredImage(null)
+    }
+
+    const handleMouseMove = () => {
+      if (hoveredImage) {
+        updateHoverPosition(hoveredImage)
+      }
+    }
+
+    return (
+      <>
+        <div style={{ 
+          display: 'flex', 
+          gap: '4px', 
+          padding: '4px',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          {labelSrc ? (
+            <div 
+              ref={labelRef}
+              style={{ position: 'relative' }}
+              onMouseEnter={() => handleMouseEnter('label')}
+              onMouseLeave={handleMouseLeave}
+              onMouseMove={handleMouseMove}
+            >
+              <img 
+                src={labelSrc} 
+                alt="Label"
+                style={{ 
+                  width: '60px', 
+                  height: '60px', 
+                  objectFit: 'contain',
+                  border: '1px solid #ddd',
+                  borderRadius: '2px',
+                  backgroundColor: '#f5f5f5',
+                  cursor: 'pointer'
+                }}
+                title="Label Image - Hover to enlarge"
+                onError={() => {
+                  setLabelMissing(true)
+                  setLabelSrc(null)
+                }}
+              />
+              <div style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                backgroundColor: 'rgba(0,0,0,0.6)',
+                color: 'white',
+                fontSize: '0.6rem',
+                padding: '1px 2px',
+                textAlign: 'center'
+              }}>
+                Label
+              </div>
+            </div>
+          ) : labelMissing ? (
+            <div 
+              style={{ 
+                width: '60px', 
+                height: '60px', 
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '1px solid #ddd',
+                borderRadius: '2px',
+                backgroundColor: '#f5f5f5',
+                fontSize: '0.6rem',
+                color: '#999',
+                textAlign: 'center',
+                padding: '4px'
+              }}
+              title="Label image not available"
+            >
+              No Label
+            </div>
+          ) : null}
+          {macroSrc ? (
+            <div 
+              ref={macroRef}
+              style={{ position: 'relative' }}
+              onMouseEnter={() => handleMouseEnter('macro')}
+              onMouseLeave={handleMouseLeave}
+              onMouseMove={handleMouseMove}
+            >
+              <img 
+                src={macroSrc} 
+                alt="Macro"
+                style={{ 
+                  width: '60px', 
+                  height: '60px', 
+                  objectFit: 'contain',
+                  border: '1px solid #ddd',
+                  borderRadius: '2px',
+                  backgroundColor: '#f5f5f5',
+                  cursor: 'pointer'
+                }}
+                title="Macro Image - Hover to enlarge"
+                onError={() => {
+                  setMacroMissing(true)
+                  setMacroSrc(null)
+                }}
+              />
+              <div style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                backgroundColor: 'rgba(0,0,0,0.6)',
+                color: 'white',
+                fontSize: '0.6rem',
+                padding: '1px 2px',
+                textAlign: 'center'
+              }}>
+                Macro
+              </div>
+            </div>
+          ) : macroMissing ? (
+            <div 
+              style={{ 
+                width: '60px', 
+                height: '60px', 
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '1px solid #ddd',
+                borderRadius: '2px',
+                backgroundColor: '#f5f5f5',
+                fontSize: '0.6rem',
+                color: '#999',
+                textAlign: 'center',
+                padding: '4px'
+              }}
+              title="Macro image not available"
+            >
+              No Macro
+            </div>
+          ) : null}
+        </div>
+        {/* Hover overlay for enlarged image - rendered via portal */}
+        {hoveredImage && (hoveredImage === 'label' ? labelSrc : macroSrc) && hoverPosition.x > 0 && hoverPosition.y > 0 && createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              left: `${hoverPosition.x}px`,
+              top: `${hoverPosition.y}px`,
+              transform: 'translate(calc(-100% + 30px), calc(-100% - 8px))',
+              zIndex: 10000,
+              pointerEvents: 'none',
+              maxWidth: `${Math.min(400, window.innerWidth - 40)}px`,
+              maxHeight: `${Math.min(400, hoverPosition.y - 40)}px`
+            }}
+          >
+            <div style={{
+              backgroundColor: 'white',
+              border: '2px solid #0066cc',
+              borderRadius: '4px',
+              padding: '4px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+              maxWidth: '100%',
+              maxHeight: '100%'
+            }}>
+              <img
+                src={hoveredImage === 'label' ? labelSrc : macroSrc}
+                alt={hoveredImage === 'label' ? 'Label (enlarged)' : 'Macro (enlarged)'}
+                style={{
+                  width: 'auto',
+                  height: 'auto',
+                  maxWidth: '100%',
+                  maxHeight: 'calc(100% - 30px)',
+                  objectFit: 'contain',
+                  display: 'block'
+                }}
+              />
+              <div style={{
+                backgroundColor: 'rgba(0,0,0,0.7)',
+                color: 'white',
+                fontSize: '0.75rem',
+                padding: '2px 6px',
+                textAlign: 'center',
+                marginTop: '4px',
+                borderRadius: '2px'
+              }}>
+                {hoveredImage === 'label' ? 'Label Image' : 'Macro Image'}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+      </>
+    )
+  }
+
   // AG Grid column definitions
   const columnDefs = useMemo(() => [
+    {
+      field: '_id',
+      headerName: 'Thumbnails',
+      width: 140,
+      resizable: true,
+      sortable: false,
+      filter: false,
+      pinned: 'left',
+      cellRenderer: ThumbnailCellRenderer
+    },
     { 
       field: 'name', 
       headerName: 'Filename',

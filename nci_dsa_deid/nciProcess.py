@@ -675,7 +675,7 @@ def refile_image(item, user, tokenId, imageId, uploadInfo=None):
     parentFolder = Folder().findOne({"name": tokenId, "parentId": ingestFolder["_id"]})
     if not parentFolder:
         parentFolder = Folder().createFolder(ingestFolder, tokenId, creator=user)
-    newImageName = f'{imageId}.{item["name"].split(".")[-1]}'
+    newImageName = f'{imageId}{os.path.splitext(item["name"])[1]}'
     originalName = item["name"]
     item["name"] = newImageName
     item = Item().move(item, parentFolder)
