@@ -23,7 +23,32 @@ class Una(ProviderBase):
         if not clientId:
             raise Exception("No UNA client ID setting is present.")
 
-        redirectUri = "/".join((getApiUrl(), "oauth", "una", "callback"))
+        # Try to get API URL - getApiUrl() should work if headers are set correctly
+        apiUrl = getApiUrl()
+        
+        # Check if we got an internal Docker hostname (indicates forwarded headers aren't working)
+        if "docker-" in apiUrl or apiUrl.startswith("http://girder") or apiUrl.startswith("https://girder"):
+            # Fallback: construct from X-Forwarded-Host header directly
+            import cherrypy
+            forwarded_host = cherrypy.request.headers.get("X-Forwarded-Host", "")
+            forwarded_proto = cherrypy.request.headers.get("X-Forwarded-Proto", "https")
+            
+            if forwarded_host:
+                # Remove port if present (X-Forwarded-Host might include port)
+                if ":" in forwarded_host:
+                    forwarded_host = forwarded_host.split(":")[0]
+                apiUrl = f"{forwarded_proto}://{forwarded_host}/dsa/api/v1"
+            else:
+                # Last resort: log a warning but use what we got
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(
+                    f"Could not determine API root from headers. "
+                    f"X-Forwarded-Host not set. Using: {apiUrl}. "
+                    f"OAuth redirect may fail."
+                )
+
+        redirectUri = "/".join((apiUrl, "oauth", "una", "callback"))
 
         # URL encode the parameters
         params = {
