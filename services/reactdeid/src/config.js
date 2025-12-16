@@ -6,11 +6,33 @@ const config = {
   // DSA API Base URL
   // For local dev: set to your remote DSA instance (e.g., 'http://bdsa.pathology.emory.edu:8080/api/v1')
   // For production: use relative path '/dsa/api/v1' which nginx will proxy
-  apiBaseUrl: import.meta.env.VITE_DSA_API_URL || 
-    (import.meta.env.DEV 
-      ? 'http://bdsa.pathology.emory.edu:8080/api/v1'  // Default remote dev server
-      : '/dsa/api/v1'  // Production uses nginx proxy
-    ),
+  get apiBaseUrl() {
+    // If we're running in the browser on HTTPS (production), always use relative path
+    // This ensures nginx can proxy the request, avoiding mixed content errors
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+      return '/dsa/api/v1'
+    }
+    
+    // Check environment variable
+    const envUrl = import.meta.env.VITE_DSA_API_URL
+    
+    // If env var is set but it's an internal Docker URL (http://girder:8080 or similar),
+    // and we're in the browser, use relative path instead
+    if (envUrl && typeof window !== 'undefined') {
+      if (envUrl.startsWith('http://') && 
+          (envUrl.includes('girder') || envUrl.includes('docker-') || envUrl.includes(':8080'))) {
+        // Internal Docker URL - use relative path so nginx can proxy
+        return '/dsa/api/v1'
+      }
+    }
+    
+    // Use env var if set, otherwise use defaults
+    return envUrl || 
+      (import.meta.env.DEV 
+        ? 'http://bdsa.pathology.emory.edu:8080/api/v1'  // Default remote dev server
+        : '/dsa/api/v1'  // Production uses nginx proxy
+      )
+  }
 }
 
 export default config

@@ -206,6 +206,8 @@ services:
     restart: unless-stopped
     environment:
       - VITE_DSA_API_URL=http://girder:8080/api/v1
+      - VITE_BASE_PATH=/deid/
+      - VITE_HMR_HOST=wsi-deid.pathology.emory.edu
     volumes:
       - ../../services/reactdeid:/home/reactdeid/app/
       - /home/reactdeid/app/node_modules/

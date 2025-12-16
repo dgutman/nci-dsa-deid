@@ -5,14 +5,16 @@ import App from './App.jsx'
 import 'bdsa-react-components/styles.css'
 import './index.css'
 
-// Use /deid basename for production, / for local dev
-const basename = import.meta.env.PROD ? '/deid' : '/'
+// Use VITE_BASE_PATH if set, otherwise /deid for production, / for local dev
+// VITE_BASE_PATH is set to /deid/ in docker-compose, so we need to remove trailing slash
+const basename = import.meta.env.VITE_BASE_PATH
+  ? import.meta.env.VITE_BASE_PATH.replace(/\/$/, '') // Remove trailing slash
+  : (import.meta.env.PROD ? '/deid' : '/')
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <BrowserRouter basename={basename}>
-      <App />
-    </BrowserRouter>
-  </React.StrictMode>,
+  // StrictMode temporarily disabled - was causing double renders/refresh loops
+  <BrowserRouter basename={basename}>
+    <App />
+  </BrowserRouter>
 )
 
