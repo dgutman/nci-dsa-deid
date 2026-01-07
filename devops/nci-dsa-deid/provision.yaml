@@ -20,7 +20,7 @@ mongo_compat: True
 ## Note the internal package name for this plugin is wsi-deid
 
 # rebuild-client may be False, True (for dev mode), or "production"
-# rebuild-client: True
+rebuild-client: True
 # Default admin user if there are no admin users
 admin:
   login: admin
