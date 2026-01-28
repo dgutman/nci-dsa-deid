@@ -51,7 +51,7 @@ const matchItemsWithMetadata = (itemsList, metadataList) => {
       // Match found
       itemCopy.match_result = 'Match'
       const matchedMetadata = metadataMapping[item.name]
-      
+
       // Copy all COLS_FOR_COPY fields from metadata
       COLS_FOR_COPY.forEach(col => {
         if (col in matchedMetadata) {
@@ -91,7 +91,7 @@ function SlidesForDeID() {
   // Fetch items when a folder is selected
   useEffect(() => {
     const folderId = selectedResource?._modelType === 'folder' ? selectedResource._id : null
-    
+
     if (!folderId || !authStatus.isAuthenticated) {
       setItems([])
       lastFetchedFolderId.current = null
@@ -105,40 +105,40 @@ function SlidesForDeID() {
 
     const fetchItems = async () => {
       // Get API base URL and headers inside the effect to avoid dependency issues
-      const apiBaseUrl = authStatus.isConfigured 
+      const apiBaseUrl = authStatus.isConfigured
         ? getApiUrl('/api/v1')
         : config.apiBaseUrl
       const apiHeaders = getAuthHeaders()
 
       setLoading(true)
       lastFetchedFolderId.current = folderId
-      
+
       try {
         const response = await fetch(
           `${apiBaseUrl}/item?folderId=${folderId}&limit=1000`,
           { headers: apiHeaders }
         )
-        
+
         if (!response.ok) {
           throw new Error(`Failed to fetch items: ${response.statusText}`)
         }
 
         const data = await response.json()
-        console.log('Fetched items:', data.length, data)
-        
+        // Fetched items from folder
+
         // Handle both array and paginated response
         const itemsList = Array.isArray(data) ? data : (data.items || [])
-        
+
         // Add match_result field (will be determined later when metadata is available)
         const itemsWithMatchStatus = itemsList.map(item => ({
           ...item,
           match_result: 'No Match' // Default, will be updated when metadata is matched
         }))
-        console.log('Setting items:', itemsWithMatchStatus.length)
-        
+        // Setting items with match status
+
         // Store original items before matching
         originalItemsRef.current = itemsWithMatchStatus.map(item => ({ ...item }))
-        
+
         // Check if metadata exists and match items
         try {
           const storedMetadata = localStorage.getItem('deid_metadata')
@@ -156,7 +156,7 @@ function SlidesForDeID() {
           setItems(itemsWithMatchStatus)
           localStorage.setItem('deid_selected_folder_items', JSON.stringify(itemsWithMatchStatus))
         }
-        
+
         localStorage.setItem('deid_selected_folder_id', folderId)
       } catch (error) {
         console.error('Error fetching items:', error)
@@ -171,7 +171,7 @@ function SlidesForDeID() {
   }, [selectedResource?._id, authStatus.isAuthenticated])
 
   const handleResourceSelect = (resource) => {
-    console.log('Selected resource:', resource)
+    // Resource selected
     setSelectedResource(resource)
     // Persist selected folder to localStorage
     try {
@@ -184,7 +184,7 @@ function SlidesForDeID() {
   const handleDownloadTemplate = () => {
     // Filter for files with "No Match" status
     const noMatchFiles = items.filter(item => item.match_result === 'No Match')
-    
+
     if (noMatchFiles.length === 0) {
       alert('No unmatched files to generate template for.')
       return
@@ -194,10 +194,10 @@ function SlidesForDeID() {
     const templateData = noMatchFiles.map((item, index) => {
       const filename = item.name || ''
       // Generate a sample ID from filename (you can customize this logic)
-      const sampleId = filename.includes('-') 
-        ? filename.split('-')[0] 
+      const sampleId = filename.includes('-')
+        ? filename.split('-')[0]
         : `SAMPLE_${String(index + 1).padStart(3, '0')}`
-      
+
       return {
         InputFileName: filename,
         SampleID: sampleId,
@@ -215,7 +215,7 @@ function SlidesForDeID() {
 
     // Convert to CSV using PapaParse
     const csv = Papa.unparse(templateData)
-    
+
     // Create download link
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
@@ -241,10 +241,10 @@ function SlidesForDeID() {
   const matchItemsWithCurrentMetadata = () => {
     try {
       const storedMetadata = localStorage.getItem('deid_metadata')
-      const originalItems = originalItemsRef.current.length > 0 
-        ? originalItemsRef.current 
+      const originalItems = originalItemsRef.current.length > 0
+        ? originalItemsRef.current
         : items.filter(item => !item.InputFileName || item.match_result === 'No Match')
-      
+
       if (storedMetadata && originalItems.length > 0) {
         const metadata = JSON.parse(storedMetadata)
         const matchedItems = matchItemsWithMetadata(originalItems, metadata)
@@ -276,7 +276,7 @@ function SlidesForDeID() {
 
     // Listen for storage events (fires when localStorage changes from other tabs/windows)
     window.addEventListener('storage', handleStorageChange)
-    
+
     // Also listen for custom event for same-window updates
     const handleMetadataUpdate = () => {
       if (items.length > 0) {
@@ -293,7 +293,7 @@ function SlidesForDeID() {
 
   // Check if download button should be enabled
   const hasUnmatchedFiles = items.some(item => item.match_result === 'No Match')
-  
+
   // Check if there are matched items ready to stage
   const matchedItems = items.filter(item => item.match_result === 'Match' && item.OutputFileName)
   const hasMatchedFiles = matchedItems.length > 0
@@ -312,12 +312,12 @@ function SlidesForDeID() {
 
     const generatedMetadata = items.map((item, index) => {
       const filename = item.name || ''
-      
+
       // Generate sample ID from filename (similar to download template logic)
-      let sampleId = filename.includes('-') 
-        ? filename.split('-')[0] 
+      let sampleId = filename.includes('-')
+        ? filename.split('-')[0]
         : `SAMPLE_${String(index + 1).padStart(3, '0')}`
-      
+
       // If filename starts with TCGA, use TCGA pattern
       if (filename.startsWith('TCGA-')) {
         const parts = filename.split('-')
@@ -352,12 +352,12 @@ function SlidesForDeID() {
     // Store metadata in localStorage so Metadata page can access it
     localStorage.setItem('deid_metadata', JSON.stringify(generatedMetadata))
     localStorage.setItem('deid_metadata_filename', `Generated from ${selectedResource?.name || 'folder'} (${items.length} items) [DEV]`)
-    
+
     // Match items immediately with the generated metadata
     const matchedItems = matchItemsWithMetadata(originalItemsRef.current.length > 0 ? originalItemsRef.current : items, generatedMetadata)
     setItems(matchedItems)
     localStorage.setItem('deid_selected_folder_items', JSON.stringify(matchedItems))
-    
+
     // Dispatch custom event to notify other components
     window.dispatchEvent(new Event('deid_metadata_updated'))
   }
@@ -370,9 +370,9 @@ function SlidesForDeID() {
     }
 
     setStaging(true)
-    
+
     try {
-      const apiBaseUrl = authStatus.isConfigured 
+      const apiBaseUrl = authStatus.isConfigured
         ? getApiUrl('/api/v1')
         : config.apiBaseUrl
       const apiHeaders = getAuthHeaders()
@@ -397,10 +397,23 @@ function SlidesForDeID() {
       const errors = []
       const duplicateWarnings = []
 
+      // Get list of items already in Unfiled folder (we'll check if we can reuse them)
+      const unfiledItemsResponse = await fetch(
+        `${apiBaseUrl}/item?folderId=${unfiledFolderId}&limit=1000`,
+        { headers: apiHeaders }
+      )
+
+      let unfiledItems = []
+      if (unfiledItemsResponse.ok) {
+        const unfiledItemsData = await unfiledItemsResponse.json()
+        unfiledItems = Array.isArray(unfiledItemsData) ? unfiledItemsData : (unfiledItemsData.items || [])
+      }
+
       // Process each matched item
       for (const item of matchedItems) {
         try {
           // Check if file already exists in workflow folders (Approved, Redacted, AvailableToProcess)
+          // If it's already in AvailableToProcess or beyond, skip it
           const existingCheck = await checkForExistingFile(
             item.OutputFileName,
             apiBaseUrl,
@@ -412,47 +425,41 @@ function SlidesForDeID() {
             duplicateWarnings.push(
               `${item.name}: OutputFileName "${item.OutputFileName}" already exists in ${existingCheck.status || 'workflow'} folder`
             )
-            continue // Skip this file
+            continue // Skip this file - it's already in the workflow
           }
 
           // Check if file already exists in Unfiled by output filename
-          const unfiledItemsResponse = await fetch(
-            `${apiBaseUrl}/item?folderId=${unfiledFolderId}&limit=1000`,
-            { headers: apiHeaders }
-          )
-          
-          if (unfiledItemsResponse.ok) {
-            const unfiledItems = await unfiledItemsResponse.json()
-            const itemsList = Array.isArray(unfiledItems) ? unfiledItems : (unfiledItems.items || [])
-            
-            // Check if output filename already exists
-            const existing = itemsList.find(i => {
-              const meta = i.meta?.deidUpload
-              return meta?.OutputFileName === item.OutputFileName
-            })
-            
-            if (existing) {
-              skippedCount++
-              continue
+          // If it exists, we can reuse it and refile it (don't skip it!)
+          const existingUnfiled = unfiledItems.find(i => {
+            const meta = i.meta?.deidUpload
+            return meta?.OutputFileName === item.OutputFileName
+          })
+
+          let itemToRefile = null
+
+          if (existingUnfiled) {
+            // File already exists in Unfiled - use it directly for refiling
+            // No need to copy again, just refile the existing one
+            // File already exists in Unfiled, will refile existing item
+            itemToRefile = existingUnfiled
+          } else {
+            // File doesn't exist in Unfiled - copy it there first
+            const copyResponse = await fetch(
+              `${apiBaseUrl}/item/${item._id}/copy?folderId=${unfiledFolderId}`,
+              {
+                method: 'POST',
+                headers: apiHeaders
+              }
+            )
+
+            if (!copyResponse.ok) {
+              throw new Error(`Failed to copy item ${item.name}`)
             }
+
+            itemToRefile = await copyResponse.json()
           }
 
-          // Copy item to Unfiled folder
-          const copyResponse = await fetch(
-            `${apiBaseUrl}/item/${item._id}/copy?folderId=${unfiledFolderId}`,
-            {
-              method: 'POST',
-              headers: apiHeaders
-            }
-          )
-
-          if (!copyResponse.ok) {
-            throw new Error(`Failed to copy item ${item.name}`)
-          }
-
-          const copiedItem = await copyResponse.json()
-
-          // Add metadata to copied item
+          // Add/update metadata to the item (whether it's newly copied or existing in Unfiled)
           const metadataToAdd = {
             deidUpload: {
               InputFileName: item.InputFileName || item.name,
@@ -470,7 +477,7 @@ function SlidesForDeID() {
           }
 
           const metaResponse = await fetch(
-            `${apiBaseUrl}/item/${copiedItem._id}/metadata`,
+            `${apiBaseUrl}/item/${itemToRefile._id}/metadata`,
             {
               method: 'PUT',
               headers: {
@@ -486,48 +493,41 @@ function SlidesForDeID() {
           }
 
           // Refile the item using WSI DeID API
+          // The refile API should move the file from Unfiled to AvailableToProcess folder
           const imageName = item.OutputFileName.replace('.svs', '')
-          const refileResponse = await fetch(
-            `${apiBaseUrl}/wsi_deid/item/${copiedItem._id}/action/refile?imageId=${encodeURIComponent(imageName)}&tokenId=${encodeURIComponent(item.SampleID)}`,
-            {
-              method: 'PUT',
-              headers: apiHeaders
-            }
-          )
+          const refileUrl = `${apiBaseUrl}/wsi_deid/item/${itemToRefile._id}/action/refile?imageId=${encodeURIComponent(imageName)}&tokenId=${encodeURIComponent(item.SampleID)}`
+
+          // Attempting to refile item to AvailableToProcess folder
+
+          const refileResponse = await fetch(refileUrl, {
+            method: 'PUT',
+            headers: apiHeaders
+          })
 
           if (refileResponse.ok) {
             const refiledItem = await refileResponse.json()
-            
-            // After refiling, we need to preserve existing metadata and add/update barcode keys
-            // First, get the current metadata to preserve OutputFileName and other fields
-            const currentMetaResponse = await fetch(
-              `${apiBaseUrl}/item/${refiledItem._id}/metadata`,
-              { headers: apiHeaders }
-            )
-            
-            let existingDeidUpload = {}
-            if (currentMetaResponse.ok) {
-              const currentMeta = await currentMetaResponse.json()
-              existingDeidUpload = currentMeta?.meta?.deidUpload || {}
-            }
-            
-            // These are the keys used for barcode encoding: ASSAY, BLOCK, CASE, INDEX, PROJECT, REPOSITORY, STUDY
+            // Successfully refiled item
+
+            // After refiling, add barcode metadata (keys used for barcode encoding)
+            // The Dash version only adds barcode keys after refile, not the full metadata
             const keysForBarcode = ['ASSAY', 'BLOCK', 'CASE', 'INDEX', 'PROJECT', 'REPOSITORY', 'STUDY']
-            
-            // Merge barcode keys into existing metadata (preserve OutputFileName, InputFileName, etc.)
-            const updatedDeidUpload = { ...existingDeidUpload }
+            const metaForBarcode = {}
+
             keysForBarcode.forEach(key => {
-              if (item[key] !== undefined && item[key] !== ' ') {
-                updatedDeidUpload[key] = item[key]
+              if (item[key] !== undefined && item[key] !== null && item[key] !== ' ') {
+                metaForBarcode[key] = item[key]
               }
             })
-            
-            // Ensure OutputFileName is preserved if it was in the original metadata
-            if (item.OutputFileName && !updatedDeidUpload.OutputFileName) {
-              updatedDeidUpload.OutputFileName = item.OutputFileName
+
+            // Also preserve InputFileName and OutputFileName
+            if (item.InputFileName) {
+              metaForBarcode.InputFileName = item.InputFileName
             }
-            
-            // Add the merged metadata to the refiled item
+            if (item.OutputFileName) {
+              metaForBarcode.OutputFileName = item.OutputFileName
+            }
+
+            // Add the barcode metadata to the refiled item
             const refiledMetaResponse = await fetch(
               `${apiBaseUrl}/item/${refiledItem._id}/metadata`,
               {
@@ -537,17 +537,112 @@ function SlidesForDeID() {
                   'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                  deidUpload: updatedDeidUpload
+                  deidUpload: metaForBarcode
                 })
               }
             )
-            
+
             if (!refiledMetaResponse.ok) {
-              console.warn(`Failed to add barcode metadata to refiled item ${item.name}`)
+              const errorText = await refiledMetaResponse.text()
+              console.warn(`Failed to add barcode metadata to refiled item ${item.name}:`, errorText)
+            } else {
+              // Successfully added barcode metadata
             }
           } else {
-            // Non-fatal - item is copied and has metadata, refile might fail but that's okay
-            console.warn(`Refile failed for ${item.name}, but item was copied`)
+            // Refile failed - check if it's because the file already exists
+            const errorText = await refileResponse.text()
+            const errorStatus = refileResponse.status
+            let errorData = null
+
+            try {
+              errorData = JSON.parse(errorText)
+            } catch (e) {
+              // Not JSON, use as-is
+            }
+
+            // If the error is "already exists", check if the file is actually in AvailableToProcess
+            if (errorStatus === 400 && errorData?.message?.includes('already exists')) {
+              // Refile returned "already exists", checking if file is in workflow...
+
+              // Check if the file already exists in AvailableToProcess by searching in the tokenId subfolder
+              // The refile API checks for files by imageId (without extension) in the tokenId subfolder
+              const imageName = item.OutputFileName.replace('.svs', '')
+              const availableToProcessPath = `/collection/WSI DeID/AvailableToProcess/${item.SampleID}`
+
+              try {
+                // Look up the tokenId subfolder
+                const tokenFolderResponse = await fetch(
+                  `${apiBaseUrl}/resource/lookup?path=${encodeURIComponent(availableToProcessPath)}`,
+                  { headers: apiHeaders }
+                )
+
+                if (tokenFolderResponse.ok) {
+                  const tokenFolder = await tokenFolderResponse.json()
+
+                  // Search for items in that folder with the imageId name
+                  const itemsResponse = await fetch(
+                    `${apiBaseUrl}/item?folderId=${tokenFolder._id}&limit=1000`,
+                    { headers: apiHeaders }
+                  )
+
+                  if (itemsResponse.ok) {
+                    const itemsData = await itemsResponse.json()
+                    const itemsList = Array.isArray(itemsData) ? itemsData : (itemsData.items || [])
+
+                    // Check if any item matches the imageId (with or without extension)
+                    const matchingItem = itemsList.find(i => {
+                      const itemName = i.name || ''
+                      // Match if the item name starts with the imageId (handles extensions)
+                      return itemName.startsWith(imageName + '.') || itemName === imageName
+                    })
+
+                    if (matchingItem) {
+                      // File is already in AvailableToProcess - this is actually a success!
+                      // File already exists in AvailableToProcess, skipping refile
+                      stagedCount++
+                      continue // Skip to next item
+                    }
+                  }
+                }
+              } catch (e) {
+                console.warn(`Error checking for existing file in ${availableToProcessPath}:`, e)
+              }
+
+              // Also check using the general checkForExistingFile function
+              // This checks Approved, Redacted, and AvailableToProcess folders
+              const existingCheck = await checkForExistingFile(
+                item.OutputFileName,
+                apiBaseUrl,
+                apiHeaders
+              )
+
+              if (existingCheck.exists) {
+                // File exists in one of the workflow folders - this is actually a success!
+                // It might be in AvailableToProcess, Approved, or Redacted
+                // File already exists in workflow folder, skipping refile
+                stagedCount++
+                continue // Skip to next item
+              } else {
+                // File doesn't exist in any workflow folder, but refile says it exists
+                // This could mean:
+                // 1. The file was refiled before but then deleted/moved
+                // 2. There's a race condition
+                // 3. The check is looking in a different location
+                // For now, log a warning but don't fail - the file might have been processed already
+                console.warn(`Refile says file exists but couldn't find it in any workflow folder. The file may have been processed and moved elsewhere, or there may be a naming mismatch.`)
+                // Don't throw an error - just skip this file
+                skippedCount++
+                continue
+              }
+            } else {
+              // Some other error
+              console.error(`Refile failed for ${item.name}:`, {
+                status: errorStatus,
+                statusText: refileResponse.statusText,
+                error: errorText
+              })
+              throw new Error(`Refile failed (${errorStatus}): ${errorText || refileResponse.statusText}. File is in Unfiled folder but not moved to AvailableToProcess.`)
+            }
           }
 
           stagedCount++
@@ -565,16 +660,15 @@ function SlidesForDeID() {
           message += `\n... and ${duplicateWarnings.length - 5} more`
         }
       }
-      if (skippedCount > 0) {
-        message += `\n${skippedCount} file(s) already in Unfiled folder (skipped).`
-      }
+      // Note: We no longer skip files in Unfiled - we refile them to AvailableToProcess
+      // So skippedCount should always be 0 now
       if (errors.length > 0) {
         message += `\n${errors.length} error(s) occurred.`
         console.error('Staging errors:', errors)
       }
-      
+
       alert(message)
-      
+
       // Refresh items to update status
       if (selectedResource?._id) {
         lastFetchedFolderId.current = null
@@ -617,7 +711,7 @@ function SlidesForDeID() {
         return
       }
 
-      const apiBaseUrl = authStatus.isConfigured 
+      const apiBaseUrl = authStatus.isConfigured
         ? getApiUrl('/api/v1')
         : config.apiBaseUrl
       const apiHeaders = getAuthHeaders()
@@ -630,7 +724,7 @@ function SlidesForDeID() {
           setMacroSrc(null)
           setLabelMissing(false)
           setMacroMissing(false)
-          
+
           // Try to fetch label image
           try {
             const labelResponse = await fetch(
@@ -732,13 +826,13 @@ function SlidesForDeID() {
     const updateHoverPosition = (imageType) => {
       const ref = imageType === 'label' ? labelRef : macroRef
       if (!ref.current) return
-      
+
       // Get the bounding rect of the thumbnail element
       const rect = ref.current.getBoundingClientRect()
       // Position overlay above the thumbnail, centered horizontally
       const centerX = rect.left + rect.width / 2
       const topY = rect.top
-      
+
       setHoverPosition({
         x: centerX,
         y: topY
@@ -763,27 +857,27 @@ function SlidesForDeID() {
 
     return (
       <>
-        <div style={{ 
-          display: 'flex', 
-          gap: '4px', 
+        <div style={{
+          display: 'flex',
+          gap: '4px',
           padding: '4px',
           alignItems: 'center',
           justifyContent: 'center'
         }}>
           {labelSrc ? (
-            <div 
+            <div
               ref={labelRef}
               style={{ position: 'relative' }}
               onMouseEnter={() => handleMouseEnter('label')}
               onMouseLeave={handleMouseLeave}
               onMouseMove={handleMouseMove}
             >
-              <img 
-                src={labelSrc} 
+              <img
+                src={labelSrc}
                 alt="Label"
-                style={{ 
-                  width: '60px', 
-                  height: '60px', 
+                style={{
+                  width: '60px',
+                  height: '60px',
                   objectFit: 'contain',
                   border: '1px solid #ddd',
                   borderRadius: '2px',
@@ -811,10 +905,10 @@ function SlidesForDeID() {
               </div>
             </div>
           ) : labelMissing ? (
-            <div 
-              style={{ 
-                width: '60px', 
-                height: '60px', 
+            <div
+              style={{
+                width: '60px',
+                height: '60px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -832,19 +926,19 @@ function SlidesForDeID() {
             </div>
           ) : null}
           {macroSrc ? (
-            <div 
+            <div
               ref={macroRef}
               style={{ position: 'relative' }}
               onMouseEnter={() => handleMouseEnter('macro')}
               onMouseLeave={handleMouseLeave}
               onMouseMove={handleMouseMove}
             >
-              <img 
-                src={macroSrc} 
+              <img
+                src={macroSrc}
                 alt="Macro"
-                style={{ 
-                  width: '60px', 
-                  height: '60px', 
+                style={{
+                  width: '60px',
+                  height: '60px',
                   objectFit: 'contain',
                   border: '1px solid #ddd',
                   borderRadius: '2px',
@@ -872,10 +966,10 @@ function SlidesForDeID() {
               </div>
             </div>
           ) : macroMissing ? (
-            <div 
-              style={{ 
-                width: '60px', 
-                height: '60px', 
+            <div
+              style={{
+                width: '60px',
+                height: '60px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -959,16 +1053,16 @@ function SlidesForDeID() {
       pinned: 'left',
       cellRenderer: ThumbnailCellRenderer
     },
-    { 
-      field: 'name', 
+    {
+      field: 'name',
       headerName: 'Filename',
       flex: 2,
       resizable: true,
       sortable: true,
       filter: true
     },
-    { 
-      field: 'size', 
+    {
+      field: 'size',
       headerName: 'File Size',
       width: 150,
       resizable: true,
@@ -976,16 +1070,16 @@ function SlidesForDeID() {
       filter: true,
       valueFormatter: (params) => formatFileSize(params.value)
     },
-    { 
-      field: '_id', 
+    {
+      field: '_id',
       headerName: 'DSA ID',
       flex: 1,
       resizable: true,
       sortable: true,
       filter: true
     },
-    { 
-      field: 'match_result', 
+    {
+      field: 'match_result',
       headerName: 'Matching Metadata',
       width: 180,
       resizable: true,
@@ -1000,8 +1094,8 @@ function SlidesForDeID() {
         return null
       }
     },
-    { 
-      field: 'OutputFileName', 
+    {
+      field: 'OutputFileName',
       headerName: 'Output File Name',
       flex: 1.5,
       resizable: true,
@@ -1031,9 +1125,9 @@ function SlidesForDeID() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '600px' }}>
       {/* Compact Toolbar */}
       {selectedResource && selectedResource._modelType === 'folder' ? (
-        <div style={{ 
-          padding: '0.5rem 1rem', 
-          backgroundColor: '#e8f4f8', 
+        <div style={{
+          padding: '0.5rem 1rem',
+          backgroundColor: '#e8f4f8',
           borderRadius: '4px',
           border: '1px solid #b3d9e6',
           display: 'flex',
@@ -1134,8 +1228,8 @@ function SlidesForDeID() {
           </div>
         </div>
       ) : (
-        <div style={{ 
-          padding: '0.5rem 1rem', 
+        <div style={{
+          padding: '0.5rem 1rem',
           marginBottom: '0.75rem',
           fontSize: '0.9rem',
           color: '#666',
@@ -1149,11 +1243,11 @@ function SlidesForDeID() {
         {/* Left side - Folder Browser */}
         <div style={{ flex: '0 0 400px', minWidth: 0, border: '1px solid #ddd', borderRadius: '6px', padding: '1rem', backgroundColor: '#f8f9fa', overflow: 'auto' }}>
           {authStatus.isAuthenticated ? (
-        <FolderBrowser
+            <FolderBrowser
               apiBaseUrl={authStatus.isConfigured ? getApiUrl('/api/v1') : config.apiBaseUrl}
               apiHeaders={getAuthHeaders()}
-          showCollections={true}
-          onResourceSelect={handleResourceSelect}
+              showCollections={true}
+              onResourceSelect={handleResourceSelect}
               foldersPerPage={20}
               persistSelection={true}
               persistSelectionKey="deid_folder_selection"
@@ -1170,11 +1264,11 @@ function SlidesForDeID() {
         {/* Right side - Items Table */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0, border: '1px solid #ddd', borderRadius: '6px', overflow: 'hidden', backgroundColor: '#fff' }}>
           {loading ? (
-            <div style={{ 
-              flex: 1, 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
+            <div style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               color: '#666',
               backgroundColor: '#f8f9fa'
             }}>
@@ -1196,15 +1290,15 @@ function SlidesForDeID() {
               />
             </div>
           ) : (
-            <div style={{ 
-              flex: 1, 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
+            <div style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               color: '#666',
               backgroundColor: '#f8f9fa'
             }}>
-              {selectedResource?._modelType === 'folder' 
+              {selectedResource?._modelType === 'folder'
                 ? 'No items found in this folder'
                 : 'Select a folder to view items'}
             </div>

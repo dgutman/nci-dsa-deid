@@ -16,6 +16,7 @@ wsiDeidFolderPathsForCleanup = [
 ]
 
 
+
 def cleanupFoldersByPath(gc, folderPathList):
     """This converts a list of paths that are the relative girder path
     and converts them into actual girder folder objects.. i.e. gives me the _id field

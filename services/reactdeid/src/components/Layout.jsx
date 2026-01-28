@@ -54,7 +54,7 @@ function Layout({ children }) {
     if (girderToken) {
       tokenProcessedRef.current = true // Mark as processed immediately
 
-      console.log('Found token in URL, processing...')
+      // Token found in URL, processing...
 
       // Store token in localStorage
       localStorage.setItem('girderToken', girderToken)
@@ -71,75 +71,36 @@ function Layout({ children }) {
 
           if (response.ok) {
             const user = await response.json()
-            console.log('Token verified, user:', user.login)
+            // Token verified successfully
             setAuthUser(user.login || user.name || 'User')
-
-            // Log available store properties for debugging
-            console.log('dsaAuthStore properties:', Object.keys(dsaAuthStore))
-            console.log('dsaAuthStore current status:', dsaAuthStore.getStatus())
 
             // The store has properties: token, userInfo, isAuthenticated
             // Try to set them directly and trigger updates
             try {
               // Try authenticateWithToken method first if it exists (preferred)
               if (dsaAuthStore.authenticateWithToken && typeof dsaAuthStore.authenticateWithToken === 'function') {
-                console.log('Using dsaAuthStore.authenticateWithToken()')
                 dsaAuthStore.authenticateWithToken(girderToken, user)
               } else {
                 // Fallback: Set properties directly
-                console.log('Setting store properties directly...')
-
-                // Set token directly if it's a property
                 if ('token' in dsaAuthStore) {
                   dsaAuthStore.token = girderToken
-                  console.log('Set dsaAuthStore.token =', girderToken.substring(0, 10) + '...')
                 }
-
-                // Set userInfo directly if it's a property
                 if ('userInfo' in dsaAuthStore) {
                   dsaAuthStore.userInfo = user
-                  console.log('Set dsaAuthStore.userInfo =', user)
                 }
-
-                // Set isAuthenticated directly if it's a property
                 if ('isAuthenticated' in dsaAuthStore) {
                   dsaAuthStore.isAuthenticated = true
-                  console.log('Set dsaAuthStore.isAuthenticated = true')
                 }
-
-                // Try setToken method if it exists (might trigger internal updates)
                 if (dsaAuthStore.setToken && typeof dsaAuthStore.setToken === 'function') {
-                  console.log('Calling dsaAuthStore.setToken()')
                   dsaAuthStore.setToken(girderToken)
                 }
-
-                // Try to trigger a notification/update if there's a notify method
                 if (dsaAuthStore.notify && typeof dsaAuthStore.notify === 'function') {
-                  console.log('Calling dsaAuthStore.notify() to update subscribers')
                   dsaAuthStore.notify()
                 }
-
-                // Check if there's an update method
                 if (dsaAuthStore.update && typeof dsaAuthStore.update === 'function') {
-                  console.log('Calling dsaAuthStore.update()')
                   dsaAuthStore.update()
                 }
               }
-
-              // Check status after setting properties
-              setTimeout(() => {
-                const status = dsaAuthStore.getStatus()
-                console.log('dsaAuthStore status after setting properties:', status)
-                console.log('Store property values:', {
-                  token: dsaAuthStore.token ? dsaAuthStore.token.substring(0, 10) + '...' : null,
-                  userInfo: dsaAuthStore.userInfo,
-                  isAuthenticated: dsaAuthStore.isAuthenticated
-                })
-                if (!status.isAuthenticated) {
-                  console.warn('Store is still not authenticated. Properties might be getters that read from internal state.')
-                  console.warn('Need to add authenticateWithToken() method to dsaAuthStore that sets internal state.')
-                }
-              }, 200)
             } catch (e) {
               console.error('Error setting store properties:', e)
             }
@@ -227,23 +188,6 @@ function Layout({ children }) {
       unsubscribe()
     }
   }, []) // Empty deps - only run once on mount
-
-  // Handle girderToken from OAuth redirect
-  // COMPLETELY DISABLED - was causing refresh loops
-  // The token will be picked up by checkExistingToken if it's in localStorage
-  // We can manually extract it from URL on first load if needed, but don't modify URL
-  // useEffect(() => {
-  //   const urlParams = new URLSearchParams(window.location.search)
-  //   const girderToken = urlParams.get('girderToken')
-  //   
-  //   if (girderToken) {
-  //     const existingToken = localStorage.getItem('girderToken')
-  //     if (!existingToken || existingToken !== girderToken) {
-  //       console.log('Found girderToken in URL, storing in localStorage')
-  //       localStorage.setItem('girderToken', girderToken)
-  //     }
-  //   }
-  // }, [])
 
   // Routes are relative - React Router will prepend basename (/deid in production)
   // So /slides becomes /deid/slides automatically
@@ -351,7 +295,11 @@ function Layout({ children }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <UnaAuthButton />
                 <span style={{ color: '#999', fontSize: '0.85rem' }}>or</span>
-                <DsaAuthManager compact={true} />
+                <DsaAuthManager
+                  compact={true}
+                  defaultServerUrl={window.location.origin + '/dsa'}
+                  hideServerUrlField={true}
+                />
               </div>
             )}
           </div>

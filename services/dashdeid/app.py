@@ -16,6 +16,7 @@ from components.dsa_login_panel import dsa_login_panel
 from components.instructionPanel import instructions_tab
 from components.metaDataUpload_panel import metadata_upload_layout
 from components.merged_dataview_panel import merged_data_panel, checkForExistingFile
+from components.collection_overview_panel import collection_overview_panel
 
 # Get prefix from environment variable, defaulting to '/' if not set
 requests_prefix = getenv('REQUESTS_PREFIX', '/')
@@ -41,6 +42,7 @@ tabs = dbc.Tabs(
         ),
         dbc.Tab(metadata_upload_layout, label="Slide Metadata ", tab_id="metadata"),
         dbc.Tab(merged_data_panel, label="Merged Data", tab_id="merged-data"),
+        dbc.Tab(collection_overview_panel, label="Collection Items", tab_id="collection-items"),
         dbc.Tab(instructions_tab, label="Instructions", tab_id="intructions-tab"),
     ],
     id="main-tabs",
@@ -65,76 +67,113 @@ app.layout = dmc.NotificationsProvider(
 
 ## This can be parallelized
 def process_row(row, COLS_FOR_COPY, metadataDict):
+    """
+    Process a single file row to determine its metadata match status and deid workflow status.
+    
+    Returns:
+        dict: Updated row with match_result, deidStatus, curDsaPath, and valid fields
+    """
     validator = Draft7Validator(s.SCHEMA)
+    
+    # Initialize default values
     row["match_result"] = "NoMeta"
     row["curDsaPath"] = None
+    row["InputFileName"] = row["name"]
+    
+    # Step 1: Handle metadata matching
+    _process_metadata_matching(row, metadataDict, COLS_FOR_COPY)
+    
+    # Step 2: Handle sample ID generation
+    _process_sample_id(row)
+    
+    # Step 3: Handle file type validation and output filename
+    if not _process_file_type_and_output_name(row):
+        # File type not supported - skip deid status processing
+        pass
+    else:
+        # Step 4: Check deid workflow status
+        _process_deid_workflow_status(row)
+    
+    # Step 5: Validate the complete row
+    _validate_row(row, validator)
+    
+    return row
 
-    row["InputFileName"] = row[
-        "name"
-    ]  ## the name of the file is the input file name per the schema
 
+def _process_metadata_matching(row, metadataDict, COLS_FOR_COPY):
+    """Handle metadata matching logic."""
     if row["name"] in metadataDict:
-
         row["match_result"] = "Match"
         matched_metadata = metadataDict[row["name"]]
         for col in COLS_FOR_COPY:
             if col in matched_metadata:
                 row[col] = matched_metadata[col]
     else:
-        ### Just insert null values for the required metadata columns..
-        for idx, col in enumerate(COLS_FOR_COPY):
-            row[col] = " "  # str(idx)
+        # No metadata found - fill with empty values
+        for col in COLS_FOR_COPY:
+            row[col] = " "
         row["valid"] = False
 
-    ## Change the default to a datetime instead of just 0
-    today = datetime.date.today()
 
-    if (
-        row["SampleID"] == " "
-    ):  ## If the sampleID is empty, then we will generate a new one
-        row["SampleID"] = "Batch-%s" % today.strftime("%Y%m%d")
+def _process_sample_id(row):
+    """Handle sample ID generation if missing."""
+    if row.get("SampleID") == " ":
+        today = datetime.date.today()
+        row["SampleID"] = f"Batch-{today.strftime('%Y%m%d')}"
 
+
+def _process_file_type_and_output_name(row):
+    """Handle file type validation and output filename generation. Returns True if file is supported."""
     if not row["name"].endswith(".svs"):
         row["deidStatus"] = "FileType Not Supported"
         row["OutputFileName"] = " "
+        return False
+    
+    # Generate output filename if not provided
+    if not row.get("OutputFileName"):
+        row["OutputFileName"] = os.path.splitext(row["name"])[0] + ".deid.svs"
+    
+    # Ensure proper .svs extension
+    if not row["OutputFileName"].endswith(".svs"):
+        if len(row["OutputFileName"].split(".")) > 1:
+            row["OutputFileName"] = row["OutputFileName"] + ".svs"
+    
+    return True
 
+
+def _process_deid_workflow_status(row):
+    """Check and set deid workflow status based on existing files."""
+    existing_file_path = checkForExistingFile(row["OutputFileName"])
+    
+    if existing_file_path:
+        # File exists in workflow - determine status based on path
+        row["curDsaPath"] = existing_file_path
+        row["deidStatus"] = _determine_workflow_status(existing_file_path)
     else:
-        if not row["OutputFileName"]:
-            ## In this case, the filename was not provided and so we will just generate one
-            row["OutputFileName"] = os.path.splitext(row["name"])[0] + ".deid.svs"
+        # File not found in workflow
+        row["deidStatus"] = "Ready for Processing"
 
-        ## Check for case where file extension is not added to the outputfilene
-        if not row["OutputFileName"].endswith(
-            ".svs"
-        ):  ### Check for proper extension when I add support for other file types..
-            if len(row["OutputFileName"].split(".")) > 1:  ## Work around null filknames
-                row["OutputFileName"] = row["OutputFileName"] + ".svs"
 
-        deidFileStatus = checkForExistingFile(row["OutputFileName"])
+def _determine_workflow_status(file_path):
+    """Determine workflow status based on file path."""
+    if file_path.startswith("/collection/WSI DeID/Approved"):
+        return "In Approved Status"
+    elif file_path.startswith("/collection/WSI DeID/Redacted"):
+        return "In Redacted Folder"
+    elif file_path.startswith("/collection/WSI DeID/AvailableToProcess"):
+        return "AvailableToProcess Folder"
+    elif "(" in file_path and ")" in file_path:
+        return "DUPLICATE - Already in Workflow"
+    else:
+        return "Unknown Workflow Status"
 
-        if deidFileStatus:
-            if deidFileStatus.startswith("/collection/WSI DeID/Approved"):
-                row["deidStatus"] = "In Approved Status"
 
-            elif deidFileStatus.startswith("/collection/WSI DeID/Redacted"):
-                row["deidStatus"] = "In Redacted Folder"
-
-            elif deidFileStatus.startswith("/collection/WSI DeID/AvailableToProcess"):
-                row["deidStatus"] = "AvailableToProcess Folder"
-            
-            # Check if this is a duplicate (has number suffix)
-            if "(" in deidFileStatus and ")" in deidFileStatus:
-                row["deidStatus"] = "DUPLICATE - Already in Workflow"
-
-            if "deidStatus" in row:
-                row["curDsaPath"] = deidFileStatus
-
+def _validate_row(row, validator):
+    """Validate the complete row and set valid status."""
     if validator.is_valid(row):
         row["valid"] = "ValidRow"
     else:
         row["valid"] = "INVALID"
-
-    return row
 
 
 @callback(

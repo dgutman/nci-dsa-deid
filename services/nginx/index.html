@@ -178,7 +178,7 @@
                     capabilities</div>
             </a>
 
-            <a href="/deid" class="service-card">
+            <a href="/deid/" class="service-card" id="deid-link">
                 <div class="service-title">🔒 DeID Dashboard</div>
                 <div class="service-description">Process and deidentify medical images with automated workflow tools
                 </div>
@@ -195,6 +195,15 @@
             <p>For technical support, contact your system administrator</p>
         </div>
     </div>
+    <script>
+        // Ensure DeID link uses the current host (prevents localhost redirects)
+        (function () {
+            const deidLink = document.getElementById('deid-link');
+            if (deidLink) {
+                deidLink.href = window.location.origin + '/deid/';
+            }
+        })();
+    </script>
 </body>
 
 </html>

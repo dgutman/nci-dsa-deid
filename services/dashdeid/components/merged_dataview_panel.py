@@ -14,6 +14,37 @@ import utils.deidHelpers as hlprs
 
 from components.dsa_login_panel import getGc
 
+# Simple in-memory cache of items under the DEID collection
+_DEID_COLLECTION_INDEX = {
+    "name_to_path": {},  # filename -> resource path
+    "last_refresh": None,
+}
+
+def refresh_deid_collection_index():
+    """Fetch all items under the DEID collection and cache their paths by name.
+
+    This uses Girder's resource items endpoint with type=collection, which
+    returns items across the collection hierarchy. We store a mapping from
+    item name (including extension) to its resource path for quick lookups.
+    """
+    try:
+        items = getGc().get(
+            f"resource/{s.DEID_COLLECTION_ID}/items?type=collection&limit=0"
+        )
+    except Exception:
+        items = []
+
+    name_to_path = {}
+    for it in items:
+        try:
+            path = getGc().get(f"resource/{it['_id']}/path?type=item")
+            name_to_path[it.get("name", "")] = path
+        except Exception:
+            continue
+
+    _DEID_COLLECTION_INDEX["name_to_path"] = name_to_path
+    _DEID_COLLECTION_INDEX["last_refresh"] = True
+
 
 ## Trying to add diskcache functionality
 def lookupDSAresource(textPrefix, mode="prefix", limit=1):
@@ -39,25 +70,34 @@ def checkForExistingFile(deidOutputFileName):
         "/collection/WSI DeID/AvailableToProcess",
     )
 
-    # First check by exact filename match
-    searchStatus = lookupDSAresource(deidOutputFileName, limit=0)
+    # Try cached collection index first
+    cached_path = _DEID_COLLECTION_INDEX["name_to_path"].get(deidOutputFileName)
+    if cached_path and cached_path.startswith(folders):
+        return cached_path
 
+    # Fallback: search API
+    searchStatus = lookupDSAresource(deidOutputFileName, limit=0)
     if searchStatus:
         for item in searchStatus.get("item", []):
             resourcePath = getGc().get(f"resource/{item['_id']}/path?type=item")
-
             if resourcePath.startswith((folders)):
                 return resourcePath
 
     # Also check for files with (1), (2), etc. suffixes that might be duplicates
+    # Note: DSA creates duplicates without a space before the bracket: "filename(1).ext"
     base_name = deidOutputFileName.rsplit('.', 1)[0] if '.' in deidOutputFileName else deidOutputFileName
     extension = '.' + deidOutputFileName.rsplit('.', 1)[1] if '.' in deidOutputFileName else ''
     
-    # Search for potential duplicates with number suffixes
+    # Search for potential duplicates with number suffixes using cache first
     for i in range(1, 10):  # Check for (1) through (9)
-        potential_duplicate = f"{base_name} ({i}){extension}"
+        potential_duplicate = f"{base_name}({i}){extension}"
+        cached_path = _DEID_COLLECTION_INDEX["name_to_path"].get(potential_duplicate)
+        if cached_path and cached_path.startswith(folders):
+            print(f"Found potential duplicate in cache: {potential_duplicate} at {cached_path}")
+            return cached_path
+
+        # Fallback: search API
         searchStatus = lookupDSAresource(potential_duplicate, limit=0)
-        
         if searchStatus:
             for item in searchStatus.get("item", []):
                 resourcePath = getGc().get(f"resource/{item['_id']}/path?type=item")
@@ -189,6 +229,9 @@ def submitImageForDeId(row, skip_existing=True):
     ## UNFILED FOLDER NEEDS TO BE LOOKED UP since it may be private..
 
     DSA_UNFILED_FOLDER = getUnfiledFolder(getGc())
+    if DSA_UNFILED_FOLDER is None:
+        s.logger.error(f"Unfiled folder not found, cannot submit file {row.get('OutputFileName', 'unknown')}")
+        raise Exception("WSI DeID/Unfiled folder not found, cannot submit files for deid")
 
     unfiledItemList = list(getGc().listItem(DSA_UNFILED_FOLDER))
 
@@ -233,12 +276,18 @@ def submitImageForDeId(row, skip_existing=True):
         )  ## Need to clarify with D Manthey where/how to avoid adding the extension twice
     # print("And now should be", newImageName)
 
+    # Check if file already exists at the expected path
+    # Note: newImagePath already includes .svs extension, so we don't add it again
+    fileExists = False
     try:
-        fileUrl = f"resource/lookup?path=/collection/{newImagePath}.svs"  ## DEID adds extension during move
-        fileExists = getGc().get(fileUrl)
-        fileExists = True
-    except:
+        fileUrl = f"resource/lookup?path=/collection/{newImagePath}"
+        result = getGc().get(fileUrl)
+        if result:
+            fileExists = True
+            s.logger.info(f"File already exists at {fileUrl}, skipping wsi_deid endpoint call for {newImageName}")
+    except Exception as e:
         fileExists = False
+        s.logger.info(f"File does not exist at {fileUrl}, will call wsi_deid endpoint for {newImageName}")
     ### See if the resource already exists  ..
 
     if not fileExists:
@@ -246,7 +295,19 @@ def submitImageForDeId(row, skip_existing=True):
         imageFileUrl = f'wsi_deid/item/{itemCopyToUnfiled["_id"]}/action/refile?imageId={newImageName}&tokenId={imageMeta["SampleID"]}'
 
         try:
+            s.logger.info(f"Calling wsi_deid endpoint: PUT {imageFileUrl}")
             itemCopyOutput = getGc().put(imageFileUrl)
+            s.logger.info(f"Successfully called wsi_deid endpoint for {newImageName}")
+            
+            # Get the actual filename and path after refile (may have been renamed if duplicate)
+            actual_filename = itemCopyOutput.get("name", newImageName)
+            actual_path = getGc().get(f"resource/{itemCopyOutput['_id']}/path?type=item")
+            s.logger.info(f"File refiled with actual name: {actual_filename}, path: {actual_path}")
+            
+            # Store the actual filename and path in the row for later lookup
+            row["_actualDeidFileName"] = actual_filename
+            row["_actualDeidPath"] = actual_path
+            
             metaForDeidObject = {}
             for k, v in imageMeta.items():
                 if k in bch.keysForBarcode:
@@ -256,7 +317,10 @@ def submitImageForDeId(row, skip_existing=True):
                 itemCopyOutput["_id"], {"deidUpload": metaForDeidObject}
             )
         except girder_client.HttpError as e:
+            s.logger.error(f"HTTP error calling wsi_deid endpoint {imageFileUrl}: {e}")
             print(e)
+        except Exception as e:
+            s.logger.error(f"Unexpected error calling wsi_deid endpoint {imageFileUrl}: {e}", exc_info=True)
         ## TO DO.. MOVE THIS TO THE DEBUG AREA
         ### FURTHER TO DO IS MAKE SURE FILES DO NOT HAVE A (1) in their name... I find that annoying
 
@@ -266,6 +330,11 @@ def submitImageForDeId(row, skip_existing=True):
 
 @callback(Output("mergedImageSet", "children"), Input("mergedItem_store", "data"))
 def updateMergedDatatable(mergeddata):
+    # Keep cache fresh when the merged data view updates
+    try:
+        refresh_deid_collection_index()
+    except Exception:
+        pass
     if mergeddata:
         for row in mergeddata:
             if row.get("match_result", None) == "Match":
@@ -353,6 +422,8 @@ def submit_for_deid(n_clicks, data, deidFlags, metadataList, loginState):
     # This can only happen if there is an unfiled folder to check on.
 
     print(loginState, "is current login state..")
+    # Refresh our DEID collection index before processing for most up-to-date status
+    refresh_deid_collection_index()
     if not loginState.get("logged_in", False):
         return (
             no_update,
@@ -379,9 +450,13 @@ def submit_for_deid(n_clicks, data, deidFlags, metadataList, loginState):
     # Count files that will be skipped
     skipped_count = 0
     submitted_count = 0
+    error_count = 0
     
-    for row in data:
+    s.logger.info(f"Starting submission process for {len(data)} files")
+    
+    for idx, row in enumerate(data):
         ### Check for valid metadata
+        s.logger.info(f"Processing row {idx + 1}/{len(data)}: {row.get('OutputFileName', row.get('name', 'unknown'))}")
         print("processing row", row)
         curDsaPath = row.get("curDsaPath", None)
 
@@ -389,52 +464,94 @@ def submit_for_deid(n_clicks, data, deidFlags, metadataList, loginState):
             row["deidStatus"] = "Invalid Metadata"
             continue
 
+        # Check if file is already in workflow
         if curDsaPath:
             if curDsaPath.startswith("/collection/WSI DeID/Approved"):
                 row["deidStatus"] = "In Approved Status"
-
             elif curDsaPath.startswith("/collection/WSI DeID/Redacted"):
                 row["deidStatus"] = "In Redacted Folder"
-
             elif curDsaPath.startswith("/collection/WSI DeID/AvailableToProcess"):
                 row["deidStatus"] = "AvailableToProcess Folder"
             
             # If skip_existing is enabled and file is already in workflow, skip it
-            if skip_existing and curDsaPath:
+            if skip_existing:
                 row["deidStatus"] = "SKIPPED - Already in Workflow"
                 skipped_count += 1
                 continue
+            # If skip_existing is False but file is already in workflow, don't resubmit
+            # (it's already been processed)
+            continue
 
-        elif row.get("deidStatus", None) in ["FileType Not Supported"]:
+        # Check for unsupported file types
+        if row.get("deidStatus", None) in ["FileType Not Supported"]:
             row["deidStatus"] = "SKIPPED"
+            continue
 
-        elif row.get("match_result") in ["Match", "NoMeta"]:
-            # Check if we should skip existing files
+        # Process matched files (Match or NoMeta)
+        if row.get("match_result") in ["Match", "NoMeta"]:
+            # Double-check if file already exists in workflow (even if curDsaPath wasn't set)
             if skip_existing:
-                # Double-check if file already exists in workflow
                 existing_file = checkForExistingFile(row.get("OutputFileName", ""))
                 if existing_file:
                     row["deidStatus"] = "SKIPPED - Already in Workflow"
+                    row["curDsaPath"] = existing_file
                     skipped_count += 1
                     continue
             
-            submitImageForDeId(row, skip_existing)
-            row["deidStatus"] = "Submitted"
-            submitted_count += 1
+            try:
+                s.logger.info(f"Submitting image for DeID: {row.get('OutputFileName', 'unknown')}")
+                submitImageForDeId(row, skip_existing)
+                row["deidStatus"] = "Submitted"
+                submitted_count += 1
+                s.logger.info(f"Set status to 'Submitted' for {row.get('OutputFileName', 'unknown')}")
+            except Exception as e:
+                s.logger.error(f"Error submitting image {row.get('OutputFileName', 'unknown')} for DeID: {e}", exc_info=True)
+                row["deidStatus"] = f"ERROR: {str(e)[:50]}"
+                error_count += 1
         else:
+            # No match result or other status - skip
             row["deidStatus"] = "SKIPPED"
+
+    # After all submissions complete, update curDsaPath for submitted files
+    if submitted_count > 0:
+        refresh_deid_collection_index()
+        for row in data:
+            # Update curDsaPath for files that were just submitted
+            if row.get("deidStatus") == "Submitted":
+                # Use the actual path if we stored it during submission (accounts for renaming)
+                if row.get("_actualDeidPath"):
+                    row["curDsaPath"] = row["_actualDeidPath"]
+                else:
+                    # Fallback: search for the file (may have been renamed during refile)
+                    existing_file_path = checkForExistingFile(row.get("OutputFileName", ""))
+                    if existing_file_path:
+                        row["curDsaPath"] = existing_file_path
+                    else:
+                        # Construct expected path if lookup fails
+                        newImageName = row.get("OutputFileName", "")
+                        sampleID = row.get("SampleID", "")
+                        if newImageName and sampleID:
+                            row["curDsaPath"] = f"/collection/WSI DeID/AvailableToProcess/{sampleID}/{newImageName}"
 
     processDeIDset(data, deidFlags)
 
     # Create notification with results
+    message_parts = [f"Submitted: {submitted_count} files"]
+    if skip_existing and skipped_count > 0:
+        message_parts.append(f"Skipped: {skipped_count} files (already in workflow)")
+    if error_count > 0:
+        message_parts.append(f"Errors: {error_count} files")
+    
     notification = dmc.Notification(
         title="Submission Complete",
         action="show",
         id="simple-notify",
-        message=f"Submitted: {submitted_count} files, Skipped: {skipped_count} files (already in workflow)" if skip_existing else f"Submitted: {submitted_count} files",
+        message=", ".join(message_parts),
         icon=DashIconify(icon="ic:round-check-circle"),
     )
 
+    s.logger.info(f"Submission complete: {submitted_count} submitted, {skipped_count} skipped, {error_count} errors out of {len(data)} total files")
+    
     # Re-enable the button after processing
     return data, False, notification
 
@@ -447,17 +564,31 @@ def processDeIDset(data, deID_flags):
         atp_imageIds = [
             x["_id"] for x in data if x["deidStatus"] == "AvailableToProcess Folder"
         ]
-        status = getGc().put(
-            f"wsi_deid/action/list/process?ids={json.dumps(atp_imageIds)}"
-        )
+        if atp_imageIds:
+            try:
+                endpoint_url = f"wsi_deid/action/list/process?ids={json.dumps(atp_imageIds)}"
+                s.logger.info(f"Calling wsi_deid batch process endpoint: PUT {endpoint_url}")
+                status = getGc().put(endpoint_url)
+                s.logger.info(f"Successfully called wsi_deid batch process endpoint for {len(atp_imageIds)} items")
+            except Exception as e:
+                s.logger.error(f"Error calling wsi_deid batch process endpoint: {e}", exc_info=True)
+        else:
+            s.logger.info("batchSubmit_atp flag set but no items with 'AvailableToProcess Folder' status found")
 
     if "batchSubmit_redacted" in deID_flags:
         redact_imageIds = [
             x["_id"] for x in data if x["deidStatus"] == "In Redacted Folder"
         ]
-        status = getGc().put(
-            f"wsi_deid/action/list/finish?ids={json.dumps(redact_imageIds)}"
-        )
+        if redact_imageIds:
+            try:
+                endpoint_url = f"wsi_deid/action/list/finish?ids={json.dumps(redact_imageIds)}"
+                s.logger.info(f"Calling wsi_deid batch finish endpoint: PUT {endpoint_url}")
+                status = getGc().put(endpoint_url)
+                s.logger.info(f"Successfully called wsi_deid batch finish endpoint for {len(redact_imageIds)} items")
+            except Exception as e:
+                s.logger.error(f"Error calling wsi_deid batch finish endpoint: {e}", exc_info=True)
+        else:
+            s.logger.info("batchSubmit_redacted flag set but no items with 'In Redacted Folder' status found")
 
 
 @callback(Output("currentItemMacro", "src"), Input("merged-datagrid", "selectedRows"))

@@ -38,19 +38,19 @@ export async function checkForExistingFile(outputFileName, apiBaseUrl, apiHeader
 
           if (pathResponse.ok) {
             let path = await pathResponse.text()
-            
+
             // Parse JSON-encoded path if needed
             try {
               path = JSON.parse(path)
             } catch (e) {
               // Not JSON, use as-is
             }
-            
+
             // Trim and remove quotes
             if (path) {
               path = path.trim()
-              if ((path.startsWith('"') && path.endsWith('"')) || 
-                  (path.startsWith("'") && path.endsWith("'"))) {
+              if ((path.startsWith('"') && path.endsWith('"')) ||
+                (path.startsWith("'") && path.endsWith("'"))) {
                 path = path.slice(1, -1)
               }
             }
@@ -84,27 +84,32 @@ export async function checkForExistingFile(outputFileName, apiBaseUrl, apiHeader
     }
 
     // Also check for files with (1), (2), etc. suffixes that might be duplicates
+    // OPTIMIZATION: Instead of searching for each variation separately (9 searches),
+    // search for the base name which will match all variations in a single search
     const lastDotIndex = outputFileName.lastIndexOf('.')
-    const baseName = lastDotIndex > 0 
+    const baseName = lastDotIndex > 0
       ? outputFileName.substring(0, lastDotIndex)
       : outputFileName
-    const extension = lastDotIndex > 0 
-      ? outputFileName.substring(lastDotIndex)
-      : ''
 
-    // Check for potential duplicates with number suffixes (1) through (9)
-    for (let i = 1; i < 10; i++) {
-      const potentialDuplicate = `${baseName} (${i})${extension}`
-      const duplicateSearchUrl = `${apiBaseUrl}/resource/search?q=${encodeURIComponent(potentialDuplicate)}&mode=prefix&limit=100&types=["item"]`
-      
+    // Only do the base name search if it's different from the full filename
+    // This single search will catch: original, (1), (2), ... (9) variations
+    if (baseName !== outputFileName) {
+      const baseSearchUrl = `${apiBaseUrl}/resource/search?q=${encodeURIComponent(baseName)}&mode=prefix&limit=100&types=["item"]`
+
       try {
-        const duplicateSearchResponse = await fetch(duplicateSearchUrl, { headers: apiHeaders })
-        
-        if (duplicateSearchResponse.ok) {
-          const duplicateResults = await duplicateSearchResponse.json()
-          const duplicateItems = duplicateResults?.item || []
+        const baseSearchResponse = await fetch(baseSearchUrl, { headers: apiHeaders })
 
-          for (const item of duplicateItems) {
+        if (baseSearchResponse.ok) {
+          const baseResults = await baseSearchResponse.json()
+          const baseItems = baseResults?.item || []
+
+          for (const item of baseItems) {
+            // Only check items that match the base name pattern (original or numbered duplicates)
+            const itemName = item.name || ''
+            if (!itemName.startsWith(baseName)) {
+              continue
+            }
+
             try {
               const pathResponse = await fetch(
                 `${apiBaseUrl}/resource/${item._id}/path?type=item`,
@@ -113,17 +118,17 @@ export async function checkForExistingFile(outputFileName, apiBaseUrl, apiHeader
 
               if (pathResponse.ok) {
                 let path = await pathResponse.text()
-                
+
                 try {
                   path = JSON.parse(path)
                 } catch (e) {
                   // Not JSON, use as-is
                 }
-                
+
                 if (path) {
                   path = path.trim()
-                  if ((path.startsWith('"') && path.endsWith('"')) || 
-                      (path.startsWith("'") && path.endsWith("'"))) {
+                  if ((path.startsWith('"') && path.endsWith('"')) ||
+                    (path.startsWith("'") && path.endsWith("'"))) {
                     path = path.slice(1, -1)
                   }
                 }
@@ -143,8 +148,8 @@ export async function checkForExistingFile(outputFileName, apiBaseUrl, apiHeader
                       exists: true,
                       path: path,
                       status: status,
-                      isDuplicate: true,
-                      duplicateName: potentialDuplicate
+                      isDuplicate: itemName !== outputFileName,
+                      duplicateName: itemName !== outputFileName ? itemName : null
                     }
                   }
                 }
@@ -155,7 +160,7 @@ export async function checkForExistingFile(outputFileName, apiBaseUrl, apiHeader
           }
         }
       } catch (e) {
-        // Continue to next number
+        // Continue - this is a non-fatal check
       }
     }
 

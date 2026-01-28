@@ -107,7 +107,7 @@ def add_barcode_to_image(
     textColor="#000000",
     square=True,
     item=None,
-    logoImageFile=None,
+    logoImageFile="NCI-logo-300x165.jpg",
 ):
     """
     Add both a title and a barcode to an image.  If the image doesn't exist, a new image is made

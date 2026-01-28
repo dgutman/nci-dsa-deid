@@ -77,6 +77,9 @@ file_handler.setFormatter(formatter)
 # Add the handler to the logger
 logger.addHandler(file_handler)
 
+# ID of the DEID collection to index for status checks
+DEID_COLLECTION_ID = os.getenv("DEID_COLLECTION_ID", "687a847774c6655f741dd902")
+
 ### These are fields that should be copied from the metadata file to the merged file
 COLS_FOR_COPY = [
     "SampleID",
