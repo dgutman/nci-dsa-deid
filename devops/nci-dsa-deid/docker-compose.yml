@@ -183,6 +183,7 @@ services:
         max-file: "5"
   dashdeid:
     image: dagutman/dashncidsadeidapp
+    pull_policy: build
     build:
       context: ../../services/dashdeid
 
@@ -198,6 +199,7 @@ services:
     restart: unless-stopped
   reactdeid:
     image: reactdeid:latest
+    pull_policy: build
     build:
       context: ../../services/reactdeid
       args:
@@ -213,24 +215,26 @@ services:
       - /home/reactdeid/app/node_modules/
     ports:
       - "5173:5173"
-  react:
-    image: bdsa/bdsa-react:0.0.4
-    build:
-      context: ../../services/react
-      args:
-        - NODE_ENV=development
-    working_dir: /home/react/app/
-    restart: unless-stopped
-    environment:
-      - REACT_APP_API_ROOT=/api
-      - REACT_APP_DSA_ROOT=/dsa
-    volumes:
-      - ../../services/react:/home/react/app/
-      - /home/react/app/node_modules/
-    command: npm start
+  # react service disabled - migrated to reactdeid
+  # react:
+  #   image: bdsa/bdsa-react:0.0.4
+  #   build:
+  #     context: ../../services/react
+  #     args:
+  #       - NODE_ENV=development
+  #   working_dir: /home/react/app/
+  #   restart: unless-stopped
+  #   environment:
+  #     - REACT_APP_API_ROOT=/api
+  #     - REACT_APP_DSA_ROOT=/dsa
+  #   volumes:
+  #     - ../../services/react:/home/react/app/
+  #     - /home/react/app/node_modules/
+  #   command: npm start
 
   node:
     image: bdsa/bdsa-node:0.0.1
+    pull_policy: build
     build:
       context: ../../services/node
       args:
