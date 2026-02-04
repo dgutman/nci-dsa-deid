@@ -2,7 +2,44 @@ from girder.api.rest import getApiUrl
 from .base import ProviderBase, ProviderException
 from girder.models.setting import Setting
 from ..settings import PluginSettings
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, urlparse, urlunparse
+
+
+def _is_internal_host(netloc):
+    """True if this is an internal Docker/localhost host that should be replaced."""
+    if not netloc:
+        return True
+    return (
+        "docker-" in netloc
+        or "girder" in netloc
+        or "localhost" in netloc
+        or ":8090" in netloc
+        or netloc.startswith("127.")
+    )
+
+
+def _get_external_base_from_request():
+    """
+    Get the external (scheme + host) from the current request headers.
+    Used so redirect_uri is consistent for both auth and token steps (proxy-safe).
+    """
+    try:
+        import cherrypy
+        headers = cherrypy.request.headers
+        forwarded_host = (headers.get("X-Forwarded-Host") or "").strip()
+        forwarded_proto = (headers.get("X-Forwarded-Proto") or "https").strip().lower()
+        host = (headers.get("Host") or "").strip()
+        if ":" in forwarded_host:
+            forwarded_host = forwarded_host.split(":")[0]
+        if ":" in host:
+            host = host.split(":")[0]
+        if forwarded_host and not _is_internal_host(forwarded_host):
+            return f"{forwarded_proto}://{forwarded_host}"
+        if host and not _is_internal_host(host):
+            return f"{forwarded_proto}://{host}"
+    except Exception:
+        pass
+    return None
 
 
 class Una(ProviderBase):
@@ -11,8 +48,7 @@ class Una(ProviderBase):
     _API_USER_URL = "https://auth.ncats.nih.gov/_api/v2/auth/NCI-DMAP/me"
 
     def __init__(self, redirectUri, clientId=None, clientSecret=None):
-        # Override __init__ to ensure redirectUri is always the correct external URL
-        # This ensures consistency between authorization request and token exchange
+        # Ensure redirectUri uses the same external host as the request (avoids redirect_uri mismatch)
         print(f"Una.__init__() called with redirectUri: '{redirectUri}'")
         redirectUri = self._normalizeRedirectUri(redirectUri)
         print(f"Una.__init__() normalized redirectUri to: '{redirectUri}'")
@@ -21,84 +57,40 @@ class Una(ProviderBase):
     @classmethod
     def _normalizeRedirectUri(cls, redirectUri):
         """
-        Normalize the redirect URI to ensure it uses the external domain,
-        not an internal Docker hostname. This ensures consistency between
-        the authorization request and token exchange.
-        
-        Note: cherrypy.url() may return just the base API URL (e.g., http://docker-dsa/api/v1)
-        or the full callback URL. This function handles both cases.
+        Use the external domain from the current request (X-Forwarded-Host / Host),
+        not an internal Docker hostname. Keeps redirect_uri identical for auth and token exchange.
+        Works for any public host (e.g. wsi-deid.cancer.gov or wsi-deid.pathology.emory.edu).
         """
         if not redirectUri:
             return redirectUri
-        
+
         print(f"_normalizeRedirectUri() input: '{redirectUri}'")
-        
-        # If it's already using the correct external domain, return as-is
-        if "wsi-deid.pathology.emory.edu" in redirectUri:
-            print(f"Redirect URI already uses external domain, returning as-is")
-            return redirectUri
-        
-        # Parse the URI
-        from urllib.parse import urlparse, urlunparse
         parsed = urlparse(redirectUri)
-        
-        # Check if it's an internal Docker hostname or localhost
-        needs_normalization = (
-            "docker-" in parsed.netloc or 
-            "girder" in parsed.netloc or 
-            "localhost" in parsed.netloc or 
-            ":8090" in parsed.netloc or
-            not parsed.netloc  # Might be a relative path
-        )
-        
-        if needs_normalization:
-            # Determine the path - ensure it includes /dsa prefix
-            if parsed.path == "/api/v1" or parsed.path == "/dsa/api/v1" or not parsed.path or parsed.path == "/":
-                # cherrypy.url() returned just the base URL, need to construct full callback URL
-                path = "/dsa/api/v1/oauth/una/callback"
-            elif parsed.path.startswith("/api/v1/oauth/una/callback"):
-                # Path is missing /dsa prefix, add it
-                path = "/dsa" + parsed.path
-            elif parsed.path.startswith("/dsa/api/v1/oauth/una/callback"):
-                # Path already has /dsa, keep it
-                path = parsed.path
-            else:
-                # It's some other path, ensure it has /dsa if it's an API path
-                if parsed.path.startswith("/api/v1"):
-                    path = "/dsa" + parsed.path
-                else:
-                    path = parsed.path
-            
-            # Replace with external domain
-            normalized = urlunparse((
-                "https",  # Always use https for external
-                "wsi-deid.pathology.emory.edu",
-                path,  # Use the determined path
-                parsed.params,
-                parsed.query,
-                parsed.fragment
-            ))
-            print(f"Normalized redirect URI from '{redirectUri}' to '{normalized}'")
-            return normalized
-        
-        # If it doesn't need normalization but doesn't have the external domain,
-        # it might be a relative path or something unexpected
-        if not parsed.netloc:
-            # Relative path - construct full URL
-            path = parsed.path if parsed.path else "/dsa/api/v1/oauth/una/callback"
-            normalized = urlunparse((
-                "https",
-                "wsi-deid.pathology.emory.edu",
-                path,
-                parsed.params,
-                parsed.query,
-                parsed.fragment
-            ))
-            print(f"Constructed full URL from relative path: '{redirectUri}' -> '{normalized}'")
-            return normalized
-        
-        print(f"Redirect URI doesn't need normalization: '{redirectUri}'")
-        return redirectUri
+
+        # If it already has an external (non-internal) host, return as-is so we don't change cancer.gov -> emory.edu
+        if parsed.netloc and not _is_internal_host(parsed.netloc):
+            print(f"Redirect URI already has external host, returning as-is")
+            return redirectUri
+
+        # Need to replace internal host or relative path with current request's external base
+        external_base = _get_external_base_from_request()
+        if not external_base:
+            print(f"No external base from request, returning redirectUri as-is")
+            return redirectUri
+
+        if parsed.path == "/api/v1" or parsed.path == "/dsa/api/v1" or not parsed.path or parsed.path == "/":
+            path = "/dsa/api/v1/oauth/una/callback"
+        elif parsed.path.startswith("/api/v1/oauth/una/callback"):
+            path = "/dsa" + parsed.path
+        elif parsed.path.startswith("/dsa/api/v1/oauth/una/callback"):
+            path = parsed.path
+        else:
+            path = "/dsa" + parsed.path if parsed.path.startswith("/api/v1") else (parsed.path or "/dsa/api/v1/oauth/una/callback")
+
+        base = urlparse(external_base)
+        normalized = urlunparse((base.scheme, base.netloc, path, parsed.params, parsed.query, parsed.fragment))
+        print(f"Normalized redirect URI from '{redirectUri}' to '{normalized}'")
+        return normalized
 
     def getClientIdSetting(self):
         return Setting().get("oauth.una_client_id")
@@ -121,55 +113,25 @@ class Una(ProviderBase):
             print(f"getApiUrl() failed: {e}")
             apiUrl = None
         
-        # Check if we got an internal Docker hostname (indicates forwarded headers aren't working)
-        # or if getApiUrl() failed
-        if (not apiUrl or 
-            "docker-" in apiUrl or 
-            apiUrl.startswith("http://girder") or 
-            apiUrl.startswith("https://girder") or
-            "localhost" in apiUrl or
-            ":8090" in apiUrl):
-            # Fallback: construct from headers directly
-            import cherrypy
-            forwarded_host = ""
-            forwarded_proto = "https"
-            host = ""
-            referer = ""
-            
-            try:
-                # Try to get headers from the current request
-                headers = cherrypy.request.headers
-                forwarded_host = headers.get("X-Forwarded-Host", "")
-                forwarded_proto = headers.get("X-Forwarded-Proto", "https")
-                host = headers.get("Host", "")
-                referer = headers.get("Referer", "")
-                
-                print(f"Debug OAuth headers - X-Forwarded-Host: '{forwarded_host}', X-Forwarded-Proto: '{forwarded_proto}', Host: '{host}', Referer: '{referer}'")
-            except (AttributeError, Exception) as e:
-                print(f"Could not access request headers: {e}")
-            
-            # Prefer X-Forwarded-Host if available
-            if forwarded_host:
-                # Remove port if present (X-Forwarded-Host might include port)
-                if ":" in forwarded_host:
-                    forwarded_host = forwarded_host.split(":")[0]
-                apiUrl = f"{forwarded_proto}://{forwarded_host}/dsa/api/v1"
-                print(f"Using X-Forwarded-Host to construct API URL: {apiUrl}")
-            elif host and not ("docker-" in host or "localhost" in host or ":8090" in host or "girder" in host):
-                # Use Host header if it looks like an external domain
-                apiUrl = f"{forwarded_proto}://{host}/dsa/api/v1"
-                print(f"Using Host header to construct API URL: {apiUrl}")
-            elif referer:
-                # Try to get from referer
-                from urllib.parse import urlparse
-                parsed = urlparse(referer)
-                if parsed.netloc and not ("docker-" in parsed.netloc or "localhost" in parsed.netloc):
-                    apiUrl = f"{parsed.scheme}://{parsed.netloc}/dsa/api/v1"
-                    print(f"Using Referer to construct API URL: {apiUrl}")
-            
-            # Final fallback: use hardcoded external domain
-            # This ensures OAuth always works even if headers aren't set correctly
-            if not apiUrl or "docker-" in apiUrl or "localhost" in apiUrl or ":8090" in apiUrl:
+        # If getApiUrl() returned an internal host or failed, build from request headers
+        # so redirect_uri matches the host the user is on (e.g. wsi-deid.cancer.gov or wsi-deid.pathology.emory.edu)
+        if not apiUrl or _is_internal_host(urlparse(apiUrl).netloc) or "docker-" in apiUrl or "girder" in apiUrl or "localhost" in apiUrl or ":8090" in apiUrl:
+            external_base = _get_external_base_from_request()
+            if external_base:
+                apiUrl = f"{external_base}/dsa/api/v1"
+                print(f"Using request headers to construct API URL: {apiUrl}")
+            else:
+                try:
+                    import cherrypy
+                    referer = (cherrypy.request.headers.get("Referer") or "").strip()
+                    if referer:
+                        pr = urlparse(referer)
+                        if pr.netloc and not _is_internal_host(pr.netloc):
+                            apiUrl = f"{pr.scheme}://{pr.netloc}/dsa/api/v1"
+                            print(f"Using Referer to construct API URL: {apiUrl}")
+                except Exception:
+                    pass
+            if not apiUrl or _is_internal_host(urlparse(apiUrl).netloc):
                 apiUrl = "https://wsi-deid.pathology.emory.edu/dsa/api/v1"
                 print(f"Using hardcoded fallback API URL: {apiUrl}")
 
