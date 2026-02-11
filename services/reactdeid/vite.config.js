@@ -13,6 +13,8 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
       port: 5173,
       strictPort: true,
+      // Allow requests when accessed via nginx proxy (Host: wsi-deid.pathology.emory.edu) or localhost
+      allowedHosts: ['wsi-deid.pathology.emory.edu', 'localhost', '.emory.edu', 'cancer.gov', '.cancer.gov'],
       // TEMPORARILY DISABLED: HMR was causing page refresh loops
       // Configure HMR WebSocket to work through nginx proxy
       // When running behind nginx (production-like setup), HMR needs to connect through the proxy

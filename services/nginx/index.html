@@ -172,7 +172,7 @@
         </div>
 
         <div class="services">
-            <a href="/dsa" class="service-card">
+            <a href="/dsa/" class="service-card" id="dsa-link">
                 <div class="service-title">📁 Digital Slide Archive</div>
                 <div class="service-description">Access and manage digital pathology slides with advanced viewing
                     capabilities</div>
@@ -196,12 +196,16 @@
         </div>
     </div>
     <script>
-        // Ensure DeID link uses the current host (prevents localhost redirects)
+        // Use server-injected public origin so links are correct even when the page is loaded
+        // from localhost (e.g. iframe or direct hit to container). Nginx replaces __PUBLIC_ORIGIN__
+        // with the request's host (from proxy), so we get wsi-deid.pathology.emory.edu, not localhost.
         (function () {
-            const deidLink = document.getElementById('deid-link');
-            if (deidLink) {
-                deidLink.href = window.location.origin + '/deid/';
-            }
+            var origin = '__PUBLIC_ORIGIN__';
+            if (origin.indexOf('__') !== -1) origin = window.location.origin;
+            var dsaLink = document.getElementById('dsa-link');
+            var deidLink = document.getElementById('deid-link');
+            if (dsaLink) dsaLink.href = origin + '/dsa';
+            if (deidLink) deidLink.href = origin + '/deid/';
         })();
     </script>
 </body>

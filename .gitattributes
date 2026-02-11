@@ -1,0 +1,3 @@
+# Force LF line endings so RabbitMQ advanced.config parses on all platforms.
+# CRLF (Windows) causes "failed to read/parse advanced.config" on Linux containers.
+devops/nci-dsa-deid/rabbitmq.advanced.config text eol=lf

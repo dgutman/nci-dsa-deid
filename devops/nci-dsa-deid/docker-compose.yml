@@ -42,8 +42,8 @@ services:
       - "${DSA_PORT:-8080}:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - nci-dsa-deid_assetstore:/assetstore
-      - nci-dsa-deid_logs:/logs
+      - ./assetstore:/assetstore
+      - ./logs:/logs
     depends_on:
       - mongodb
       - memcached
@@ -165,6 +165,3 @@ services:
       - mongodb
     command: npm run start.dev
 
-volumes:
-  nci-dsa-deid_assetstore:
-  nci-dsa-deid_logs:

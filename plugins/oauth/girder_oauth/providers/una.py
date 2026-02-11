@@ -1,8 +1,17 @@
+import os
+
 from girder.api.rest import getApiUrl
 from .base import ProviderBase, ProviderException
 from girder.models.setting import Setting
 from ..settings import PluginSettings
 from urllib.parse import quote, urlencode, urlparse, urlunparse
+
+# Optional: set UNA_OAUTH_REDIRECT_URI in env (e.g. in docker-compose or .env) to fix
+# redirect_uri when proxy headers are wrong. Example:
+#   UNA_OAUTH_REDIRECT_URI=https://wsi-deid.cancer.gov/dsa/api/v1/oauth/una/callback
+# Leave unset to use request headers (X-Forwarded-Host, etc.).
+def _get_redirect_uri_override():
+    return (os.environ.get("UNA_OAUTH_REDIRECT_URI") or "").strip() or None
 
 
 def _is_internal_host(netloc):
@@ -48,10 +57,14 @@ class Una(ProviderBase):
     _API_USER_URL = "https://auth.ncats.nih.gov/_api/v2/auth/NCI-DMAP/me"
 
     def __init__(self, redirectUri, clientId=None, clientSecret=None):
-        # Ensure redirectUri uses the same external host as the request (avoids redirect_uri mismatch)
         print(f"Una.__init__() called with redirectUri: '{redirectUri}'")
-        redirectUri = self._normalizeRedirectUri(redirectUri)
-        print(f"Una.__init__() normalized redirectUri to: '{redirectUri}'")
+        override = _get_redirect_uri_override()
+        if override:
+            redirectUri = override
+            print(f"Una.__init__() using UNA_OAUTH_REDIRECT_URI from env: '{redirectUri}'")
+        else:
+            redirectUri = self._normalizeRedirectUri(redirectUri)
+            print(f"Una.__init__() normalized redirectUri to: '{redirectUri}'")
         super().__init__(redirectUri, clientId, clientSecret)
 
     @classmethod
@@ -63,34 +76,38 @@ class Una(ProviderBase):
         """
         if not redirectUri:
             return redirectUri
+        try:
+            print(f"_normalizeRedirectUri() input: '{redirectUri}'")
+            parsed = urlparse(redirectUri)
 
-        print(f"_normalizeRedirectUri() input: '{redirectUri}'")
-        parsed = urlparse(redirectUri)
+            # If it already has an external (non-internal) host, return as-is
+            if parsed.netloc and not _is_internal_host(parsed.netloc):
+                print(f"Redirect URI already has external host, returning as-is")
+                return redirectUri
 
-        # If it already has an external (non-internal) host, return as-is so we don't change cancer.gov -> emory.edu
-        if parsed.netloc and not _is_internal_host(parsed.netloc):
-            print(f"Redirect URI already has external host, returning as-is")
+            external_base = _get_external_base_from_request()
+            if not external_base:
+                print(f"No external base from request, returning redirectUri as-is")
+                return redirectUri
+
+            if parsed.path == "/api/v1" or parsed.path == "/dsa/api/v1" or not parsed.path or parsed.path == "/":
+                path = "/dsa/api/v1/oauth/una/callback"
+            elif parsed.path.startswith("/api/v1/oauth/una/callback"):
+                path = "/dsa" + parsed.path
+            elif parsed.path.startswith("/dsa/api/v1/oauth/una/callback"):
+                path = parsed.path
+            else:
+                path = "/dsa" + parsed.path if parsed.path.startswith("/api/v1") else (parsed.path or "/dsa/api/v1/oauth/una/callback")
+
+            base = urlparse(external_base)
+            if not base.scheme or not base.netloc:
+                return redirectUri
+            normalized = urlunparse((base.scheme, base.netloc, path, parsed.params, parsed.query, parsed.fragment))
+            print(f"Normalized redirect URI from '{redirectUri}' to '{normalized}'")
+            return normalized
+        except Exception as e:
+            print(f"_normalizeRedirectUri() error: {e}, returning original")
             return redirectUri
-
-        # Need to replace internal host or relative path with current request's external base
-        external_base = _get_external_base_from_request()
-        if not external_base:
-            print(f"No external base from request, returning redirectUri as-is")
-            return redirectUri
-
-        if parsed.path == "/api/v1" or parsed.path == "/dsa/api/v1" or not parsed.path or parsed.path == "/":
-            path = "/dsa/api/v1/oauth/una/callback"
-        elif parsed.path.startswith("/api/v1/oauth/una/callback"):
-            path = "/dsa" + parsed.path
-        elif parsed.path.startswith("/dsa/api/v1/oauth/una/callback"):
-            path = parsed.path
-        else:
-            path = "/dsa" + parsed.path if parsed.path.startswith("/api/v1") else (parsed.path or "/dsa/api/v1/oauth/una/callback")
-
-        base = urlparse(external_base)
-        normalized = urlunparse((base.scheme, base.netloc, path, parsed.params, parsed.query, parsed.fragment))
-        print(f"Normalized redirect URI from '{redirectUri}' to '{normalized}'")
-        return normalized
 
     def getClientIdSetting(self):
         return Setting().get("oauth.una_client_id")
@@ -135,8 +152,13 @@ class Una(ProviderBase):
                 apiUrl = "https://wsi-deid.pathology.emory.edu/dsa/api/v1"
                 print(f"Using hardcoded fallback API URL: {apiUrl}")
 
-        redirectUri = "/".join((apiUrl, "oauth", "una", "callback"))
-        print(f"getUrl() - Final OAuth redirect URI for authorization request: '{redirectUri}'")
+        override = _get_redirect_uri_override()
+        if override:
+            redirectUri = override
+            print(f"getUrl() - Using UNA_OAUTH_REDIRECT_URI from env: '{redirectUri}'")
+        else:
+            redirectUri = "/".join((apiUrl, "oauth", "una", "callback"))
+            print(f"getUrl() - Final OAuth redirect URI for authorization request: '{redirectUri}'")
         # URL encode the parameters
         params = {
             "client_id": clientId,
