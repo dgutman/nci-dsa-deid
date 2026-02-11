@@ -1,6 +1,7 @@
 services:
   girder:
-    image: "dagutman/nci-dsa-deid:latest"
+    # Image from Docker Hub; build and push with ./build_and_push.sh (from repo root)
+    image: "${DOCKER_NAMESPACE:-dagutman}/nci-dsa-deid:latest"
     #build:
     #  context: .
     # Only have this on during dev
@@ -20,6 +21,9 @@ services:
     environment:
       DSA_USER: ${DSA_USER:-} # Enable this to automatically use the provisioning yaml      
       DSA_PROVISION_YAML: ${DSA_PROVISION_YAML:-/opt/digital_slide_archive/devops/dsa/provision.yaml}
+      # Optional: set to fix OAuth redirect_uri when proxy headers are wrong (e.g. 400 redirect_uri mismatch).
+      # Use the exact callback URL your OAuth provider expects. Leave unset to use request headers.
+      UNA_OAUTH_REDIRECT_URI: ${UNA_OAUTH_REDIRECT_URI:-}
 
       VITE_API_ROOT: /dsa/api/v1
       GIRDER_SERVER_MODE: development
@@ -37,29 +41,9 @@ services:
     ports:
       - "${DSA_PORT:-8080}:8080"
     volumes:
-      # Needed to use slicer_cli_web to run docker containers
       - /var/run/docker.sock:/var/run/docker.sock
-      # Default assetstore
-      - ./assetstore:/assetstore
-      # Location of girder.cfg
-      - ./girder.cfg:/etc/girder.cfg
-      # Location of provision.py
-      - ./provision.py:/opt/digital_slide_archive/devops/dsa/provision.py
-      - ./provision.yaml:/opt/digital_slide_archive/devops/dsa/provision.yaml
-      - ./start_girder.sh:/opt/digital_slide_archive/devops/dsa/start_girder.sh
-      # Location to store logs
-      - ./logs:/logs
-      # For local development, uncomment the set of mounts associated with the
-      # local source files.  Adding the editable egg directories first allows
-      # allow mounting source files from the host without breaking the internal
-      # data.
-
-      # - /opt/girder/girder.egg-info
-      # - /opt/girder/clients/python/girder_client.egg-info
-      # - ../../../girder:/opt/girder
-
-      # Add additional mounts here to get access to existing files on your
-      # system.  Also add them to the worker container to reduce copying.
+      - nci-dsa-deid_assetstore:/assetstore
+      - nci-dsa-deid_logs:/logs
     depends_on:
       - mongodb
       - memcached
@@ -67,7 +51,8 @@ services:
     command: /opt/digital_slide_archive/devops/dsa/start_girder.sh
 
   nginx:
-    image: nginx:1.27.1
+    # Custom image with our nginx config; build and push with ./build_and_push.sh (from repo root)
+    image: "${DOCKER_NAMESPACE:-dagutman}/nci-dsa-deid-nginx:latest"
     restart: unless-stopped
     environment:
       - REACT_BASE=/ # Make this match whatver PUBLIC_URL is set to in the react service. TODO: make nginx.conf use this env variable.
@@ -80,18 +65,6 @@ services:
       # - "${HTTPS_PORT:-443}:443"
     depends_on:
       - girder
-
-    volumes:
-      - ../../services/nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ../../services/nginx/redirect_http.conf:/etc/nginx/conf.d/redirect_http.conf
-      - ../../services/nginx/use_https.conf:/etc/nginx/conf.d/use_https.conf
-      - ../../services/nginx/index.html:/etc/nginx/html/index.html
-      # - ../services/nginx/templates/envvar.conf.template:/etc/nginx/templates/envvar.conf.template
-      # - ../services/nginx/templates/redirect_http.${REDIRECT_HTTP:-no}.conf.template:/etc/nginx/templates/redirect_http.conf.template 
-      # - ../services/nginx/templates/use_https.${USE_HTTPS:-no}.conf.template:/etc/nginx/templates/use_https.conf.template 
-      # - ../services/nginx/templates/use_http${USE_HTTPS+s}.conf.template:/etc/nginx/templates/use_https.conf.template
-      # - ../services/nginx/ssl:/etc/ssl
-
 
   mongodb:
     image: "mongo:latest"
@@ -106,7 +79,6 @@ services:
     # mongo.  Remove this limit or increase the host vm.max_map_count value.
     command: --maxConns 1000 --logpath /var/log/mongodb/mongodb.log
     volumes:
-      # Location to store database files
       - ./db:/data/db
       - ./logs:/var/log/mongodb
     # Uncomment to allow access to the database from outside of the docker
@@ -137,8 +109,7 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-}
-    volumes:
-      - ./rabbitmq.advanced.config:/etc/rabbitmq/advanced.config:ro
+    # rabbitmq.advanced.config must be in image if needed; no bind mount.
     logging:
       options:
         max-size: "10M"
@@ -161,19 +132,7 @@ services:
       TMPDIR:
     restart: unless-stopped
     volumes:
-      # Needed to use slicer_cli_web to run docker containers
       - /var/run/docker.sock:/var/run/docker.sock
-      # Modify the worker.local.cfg to specify a different rabbitmq server and
-      # then enable this mount.  On the rabbitmq server, make sure you add a
-      # non-guest default user and use that both in the worker and in the main
-      # girder settings.
-      # - ./worker.local.cfg:/opt/girder_worker/girder_worker/worker.local.cfg
-      # Allow overriding the start command
-      - ./start_worker.sh:/opt/digital_slide_archive/devops/dsa/start_worker.sh
-      # Needed to allow transferring data to slicer_cli_web docker containers
-      - ${TMPDIR:-/tmp}:${TMPDIR:-/tmp}
-      # Add additional mounts here to get access to existing files on your
-      # system if they have the same path as on the girder container.
     depends_on:
       - rabbitmq
     command: /opt/digital_slide_archive/devops/dsa/start_worker.sh
@@ -181,73 +140,31 @@ services:
       options:
         max-size: "10M"
         max-file: "5"
-  dashdeid:
-    image: dagutman/dashncidsadeidapp
-    pull_policy: build
-    build:
-      context: ../../services/dashdeid
-
-    ports:
-      - "8050:8050"
-    environment:
-      - REQUESTS_PREFIX=/deid/
-      - DSA_API_URL=http://girder:8080/api/v1
-      - FLASK_ENV=development
-      - FLASK_DEBUG=1
-    volumes:
-      - ../../services/dashdeid:/app
-    restart: unless-stopped
   reactdeid:
-    image: reactdeid:latest
-    pull_policy: build
-    build:
-      context: ../../services/reactdeid
-      args:
-        - NODE_ENV=development
+    # Image from Docker Hub; build and push with ./build_and_push.sh (from repo root)
+    image: "${DOCKER_NAMESPACE:-dagutman}/reactdeid:latest"
     working_dir: /home/reactdeid/app/
     restart: unless-stopped
     environment:
       - VITE_DSA_API_URL=http://girder:8080/api/v1
       - VITE_BASE_PATH=/deid/
       - VITE_HMR_HOST=wsi-deid.pathology.emory.edu
-    volumes:
-      - ../../services/reactdeid:/home/reactdeid/app/
-      - /home/reactdeid/app/node_modules/
     ports:
       - "5173:5173"
-  # react service disabled - migrated to reactdeid
-  # react:
-  #   image: bdsa/bdsa-react:0.0.4
-  #   build:
-  #     context: ../../services/react
-  #     args:
-  #       - NODE_ENV=development
-  #   working_dir: /home/react/app/
-  #   restart: unless-stopped
-  #   environment:
-  #     - REACT_APP_API_ROOT=/api
-  #     - REACT_APP_DSA_ROOT=/dsa
-  #   volumes:
-  #     - ../../services/react:/home/react/app/
-  #     - /home/react/app/node_modules/
-  #   command: npm start
 
   node:
-    image: bdsa/bdsa-node:0.0.1
-    pull_policy: build
-    build:
-      context: ../../services/node
-      args:
-        - NODE_ENV=development
+    # Image from Docker Hub; build and push with ./build_and_push.sh (from repo root)
+    image: "${DOCKER_NAMESPACE:-dagutman}/bdsa-node:0.0.1"
     user: "node"
     working_dir: /home/node/app/
     restart: unless-stopped
     environment:
       - MONGO_HOSTNAME=mongodb # this must match the name of the mongodb container
       - MONGO_PORT=27017 # this must be the port that the mongodb container listens on
-    volumes:
-      - ../../services/node:/home/node/app/
-      - /home/node/app/node_modules/
     depends_on:
       - mongodb
     command: npm run start.dev
+
+volumes:
+  nci-dsa-deid_assetstore:
+  nci-dsa-deid_logs:
