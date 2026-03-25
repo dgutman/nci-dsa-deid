@@ -12,7 +12,7 @@ RUN pip install --no-cache-dir girder-ldap pyyaml pylibdmtx && \
     pip install --no-cache-dir git+https://github.com/dgutman/nci-dsa-deid && \
     rm -rf /root/.cache/pip
 
-# Copy the package first
+# Copy the OAuth plugin from repo root
 RUN mkdir -p /opt/girder/plugins
 COPY plugins/oauth /opt/girder/plugins/oauth
 RUN pip install --no-cache-dir -e /opt/girder/plugins/oauth && rm -rf /root/.cache/pip

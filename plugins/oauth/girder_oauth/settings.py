@@ -5,6 +5,10 @@ from girder.utility import setting_utilities
 class PluginSettings:
     PROVIDERS_ENABLED = "oauth.providers_enabled"
     IGNORE_REGISTRATION_POLICY = "oauth.ignore_registration_policy"
+    
+    # External domain/base URL for OAuth redirect URIs
+    # This should be set to the public-facing domain (e.g., "https://wsi-deid.pathology.emory.edu")
+    EXTERNAL_URL = "oauth.external_url"
 
     GOOGLE_CLIENT_ID = "oauth.google_client_id"
     GOOGLE_CLIENT_SECRET = "oauth.google_client_secret"
@@ -47,6 +51,7 @@ def _defaultIgnoreRegistrationPolicy():
 
 @setting_utilities.default(
     {
+        PluginSettings.EXTERNAL_URL,
         PluginSettings.GOOGLE_CLIENT_ID,
         PluginSettings.GLOBUS_CLIENT_ID,
         PluginSettings.GITHUB_CLIENT_ID,
@@ -88,6 +93,7 @@ def _validateIgnoreRegistrationPolicy(doc):
 
 @setting_utilities.validator(
     {
+        PluginSettings.EXTERNAL_URL,
         PluginSettings.GOOGLE_CLIENT_ID,
         PluginSettings.GLOBUS_CLIENT_ID,
         PluginSettings.GITHUB_CLIENT_ID,

@@ -1,9 +1,8 @@
 services:
   girder:
     image: "dagutman/nci-dsa-deid:latest"
-    #build:
-    #  context: .
-    # Only have this on during dev
+    # Build configuration moved to docker-compose.override.yml for local development
+    # Production/colleagues will pull pre-built image from Docker Hub
     # Instead of privileged mode, fuse can use:
     privileged: true
     # Set DSA_USER to a user id that is part of the docker group (e.g.,
@@ -20,6 +19,10 @@ services:
     environment:
       DSA_USER: ${DSA_USER:-} # Enable this to automatically use the provisioning yaml      
       DSA_PROVISION_YAML: ${DSA_PROVISION_YAML:-/opt/digital_slide_archive/devops/dsa/provision.yaml}
+      
+      # OAuth External URL - Centralized configuration for OAuth redirect URIs
+      # This is automatically converted to the oauth.external_url Girder setting via DSA_SETTING_ prefix
+      DSA_SETTING_oauth.external_url: ${OAUTH_EXTERNAL_URL:-https://wsi-deid.pathology.emory.edu}
 
       VITE_API_ROOT: /dsa/api/v1
       GIRDER_SERVER_MODE: development
@@ -43,9 +46,12 @@ services:
       - ./assetstore:/assetstore
       # Location of girder.cfg
       - ./girder.cfg:/etc/girder.cfg
-      # Location of provision.py
+      # Location of provision.py and related files
       - ./provision.py:/opt/digital_slide_archive/devops/dsa/provision.py
+      - ./wsi_deid_provision.py:/opt/digital_slide_archive/devops/dsa/wsi_deid_provision.py
       - ./provision.yaml:/opt/digital_slide_archive/devops/dsa/provision.yaml
+      - ./homepage.md:/opt/digital_slide_archive/devops/dsa/homepage.md
+      - ./importManifestSchema.json:/opt/digital_slide_archive/devops/dsa/importManifestSchema.json
       - ./start_girder.sh:/opt/digital_slide_archive/devops/dsa/start_girder.sh
       # Location to store logs
       - ./logs:/logs
@@ -67,7 +73,8 @@ services:
     command: /opt/digital_slide_archive/devops/dsa/start_girder.sh
 
   nginx:
-    image: nginx:1.27.1
+    image: dagutman/nci-dsa-deid-nginx:latest
+    # Build configuration moved to docker-compose.override.yml for local development
     restart: unless-stopped
     environment:
       - REACT_BASE=/ # Make this match whatver PUBLIC_URL is set to in the react service. TODO: make nginx.conf use this env variable.
@@ -80,17 +87,8 @@ services:
       # - "${HTTPS_PORT:-443}:443"
     depends_on:
       - girder
-
-    volumes:
-      - ../../services/nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ../../services/nginx/redirect_http.conf:/etc/nginx/conf.d/redirect_http.conf
-      - ../../services/nginx/use_https.conf:/etc/nginx/conf.d/use_https.conf
-      - ../../services/nginx/index.html:/etc/nginx/html/index.html
-      # - ../services/nginx/templates/envvar.conf.template:/etc/nginx/templates/envvar.conf.template
-      # - ../services/nginx/templates/redirect_http.${REDIRECT_HTTP:-no}.conf.template:/etc/nginx/templates/redirect_http.conf.template 
-      # - ../services/nginx/templates/use_https.${USE_HTTPS:-no}.conf.template:/etc/nginx/templates/use_https.conf.template 
-      # - ../services/nginx/templates/use_http${USE_HTTPS+s}.conf.template:/etc/nginx/templates/use_https.conf.template
-      # - ../services/nginx/ssl:/etc/ssl
+    # Volumes removed from production compose file - nginx config is baked into image
+    # For local dev, volumes are added in docker-compose.override.yml
 
 
   mongodb:
@@ -181,69 +179,31 @@ services:
       options:
         max-size: "10M"
         max-file: "5"
-  dashdeid:
-    image: dagutman/dashncidsadeidapp
-    build:
-      context: ../../services/dashdeid
-
-    ports:
-      - "8050:8050"
-    environment:
-      - REQUESTS_PREFIX=/deid/
-      - DSA_API_URL=http://girder:8080/api/v1
-      - FLASK_ENV=development
-      - FLASK_DEBUG=1
-    volumes:
-      - ../../services/dashdeid:/app
-    restart: unless-stopped
+  # dashdeid service - DEPRECATED (replaced by reactdeid)
+  # Uncomment only if you need the legacy Dash app
+  # dashdeid:
+  #   image: dagutman/dashncidsadeidapp
+  #   ports:
+  #     - "8050:8050"
+  #   environment:
+  #     - REQUESTS_PREFIX=/deid/
+  #     - DSA_API_URL=http://girder:8080/api/v1
+  #     - FLASK_ENV=development
+  #     - FLASK_DEBUG=1
+  #   volumes:
+  #     - ../../services/dashdeid:/app
+  #   restart: unless-stopped
+  
   reactdeid:
-    image: reactdeid:latest
-    build:
-      context: ../../services/reactdeid
-      args:
-        - NODE_ENV=development
+    image: dagutman/reactdeid:latest
+    # Build configuration moved to docker-compose.override.yml for local development
     working_dir: /home/reactdeid/app/
     restart: unless-stopped
     environment:
       - VITE_DSA_API_URL=http://girder:8080/api/v1
       - VITE_BASE_PATH=/deid/
-      - VITE_HMR_HOST=wsi-deid.pathology.emory.edu
-    volumes:
-      - ../../services/reactdeid:/home/reactdeid/app/
-      - /home/reactdeid/app/node_modules/
+      # Use the centralized OAUTH_EXTERNAL_URL for HMR host (extract domain only)
+      - VITE_HMR_HOST=${OAUTH_EXTERNAL_URL:-wsi-deid.pathology.emory.edu}
+    # Volumes removed from production compose file - moved to docker-compose.override.yml for local dev
     ports:
       - "5173:5173"
-  react:
-    image: bdsa/bdsa-react:0.0.4
-    build:
-      context: ../../services/react
-      args:
-        - NODE_ENV=development
-    working_dir: /home/react/app/
-    restart: unless-stopped
-    environment:
-      - REACT_APP_API_ROOT=/api
-      - REACT_APP_DSA_ROOT=/dsa
-    volumes:
-      - ../../services/react:/home/react/app/
-      - /home/react/app/node_modules/
-    command: npm start
-
-  node:
-    image: bdsa/bdsa-node:0.0.1
-    build:
-      context: ../../services/node
-      args:
-        - NODE_ENV=development
-    user: "node"
-    working_dir: /home/node/app/
-    restart: unless-stopped
-    environment:
-      - MONGO_HOSTNAME=mongodb # this must match the name of the mongodb container
-      - MONGO_PORT=27017 # this must be the port that the mongodb container listens on
-    volumes:
-      - ../../services/node:/home/node/app/
-      - /home/node/app/node_modules/
-    depends_on:
-      - mongodb
-    command: npm run start.dev

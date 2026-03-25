@@ -13,6 +13,9 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
       port: 5173,
       strictPort: true,
+      // Allow external hosts - important for production domains
+      // This allows Vite dev server to accept requests from any host (nginx proxy)
+      allowedHosts: true,
       // TEMPORARILY DISABLED: HMR was causing page refresh loops
       // Configure HMR WebSocket to work through nginx proxy
       // When running behind nginx (production-like setup), HMR needs to connect through the proxy

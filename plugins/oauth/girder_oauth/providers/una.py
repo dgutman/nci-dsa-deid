@@ -33,13 +33,30 @@ class Una(ProviderBase):
         
         print(f"_normalizeRedirectUri() input: '{redirectUri}'")
         
+        # Get the external URL from settings
+        externalUrl = Setting().get(PluginSettings.EXTERNAL_URL)
+        if not externalUrl:
+            # Fallback to environment variable if not set in Girder settings
+            import os
+            externalUrl = os.environ.get('OAUTH_EXTERNAL_URL', '')
+        
+        # Parse external URL to get the expected domain
+        from urllib.parse import urlparse, urlunparse
+        if externalUrl:
+            external_parsed = urlparse(externalUrl)
+            expected_domain = external_parsed.netloc
+            print(f"Using external domain from settings/env: '{expected_domain}'")
+        else:
+            # Final fallback to hardcoded value for backward compatibility
+            expected_domain = "wsi-deid.pathology.emory.edu"
+            print(f"Using fallback external domain: '{expected_domain}'")
+        
         # If it's already using the correct external domain, return as-is
-        if "wsi-deid.pathology.emory.edu" in redirectUri:
+        if expected_domain in redirectUri:
             print(f"Redirect URI already uses external domain, returning as-is")
             return redirectUri
         
         # Parse the URI
-        from urllib.parse import urlparse, urlunparse
         parsed = urlparse(redirectUri)
         
         # Check if it's an internal Docker hostname or localhost
@@ -72,7 +89,7 @@ class Una(ProviderBase):
             # Replace with external domain
             normalized = urlunparse((
                 "https",  # Always use https for external
-                "wsi-deid.pathology.emory.edu",
+                expected_domain,
                 path,  # Use the determined path
                 parsed.params,
                 parsed.query,
@@ -88,7 +105,7 @@ class Una(ProviderBase):
             path = parsed.path if parsed.path else "/dsa/api/v1/oauth/una/callback"
             normalized = urlunparse((
                 "https",
-                "wsi-deid.pathology.emory.edu",
+                expected_domain,
                 path,
                 parsed.params,
                 parsed.query,
@@ -112,6 +129,13 @@ class Una(ProviderBase):
         clientId = Setting().get(PluginSettings.UNA_CLIENT_ID)
         if not clientId:
             raise Exception("No UNA client ID setting is present.")
+        
+        # Get the external URL from settings (centralized configuration)
+        externalUrl = Setting().get(PluginSettings.EXTERNAL_URL)
+        if not externalUrl:
+            # Fallback to environment variable if not set in Girder settings
+            import os
+            externalUrl = os.environ.get('OAUTH_EXTERNAL_URL', '')
 
         # Try to get API URL - getApiUrl() should work if headers are set correctly
         apiUrl = None
@@ -167,11 +191,18 @@ class Una(ProviderBase):
                     apiUrl = f"{parsed.scheme}://{parsed.netloc}/dsa/api/v1"
                     print(f"Using Referer to construct API URL: {apiUrl}")
             
-            # Final fallback: use hardcoded external domain
-            # This ensures OAuth always works even if headers aren't set correctly
+            # Final fallback: use the centralized external URL setting
             if not apiUrl or "docker-" in apiUrl or "localhost" in apiUrl or ":8090" in apiUrl:
-                apiUrl = "https://wsi-deid.pathology.emory.edu/dsa/api/v1"
-                print(f"Using hardcoded fallback API URL: {apiUrl}")
+                if externalUrl:
+                    # Parse external URL to construct the API URL
+                    from urllib.parse import urlparse
+                    parsed = urlparse(externalUrl)
+                    apiUrl = f"{parsed.scheme}://{parsed.netloc}/dsa/api/v1"
+                    print(f"Using centralized external URL setting: {apiUrl}")
+                else:
+                    # Absolute final fallback for backward compatibility
+                    apiUrl = "https://wsi-deid.pathology.emory.edu/dsa/api/v1"
+                    print(f"Using hardcoded fallback API URL: {apiUrl} (WARNING: Set oauth.external_url setting!)")
 
         redirectUri = "/".join((apiUrl, "oauth", "una", "callback"))
         print(f"getUrl() - Final OAuth redirect URI for authorization request: '{redirectUri}'")

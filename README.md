@@ -5,6 +5,20 @@ To run this application you will need to have Docker and git installed. This app
 
 This application works in tandem with a running DSA instance. The DSA instance used is specified in the .env file (see instructions).
 
+## Configuration
+
+### OAuth External URL (Required for Production)
+
+For production deployments, you must set the `OAUTH_EXTERNAL_URL` environment variable to your deployment's public-facing domain:
+
+```bash
+OAUTH_EXTERNAL_URL="https://your-domain.example.com"
+```
+
+This centralizes OAuth redirect URL configuration across all components. See documentation:
+- [OAuth Configuration Guide](docs/OAUTH_CONFIGURATION.md) - Technical details
+- [OAuth Migration Guide](docs/OAUTH_MIGRATION_GUIDE.md) - IT deployment guide
+
 **Run Application through Docker**
 1. Clone this repository: ```$ git clone https://github.com/dgutman/nci-dsa-deid.git```
 2. Using the terminal navigate into the repository: ```$ cd nci-dsa-deid```

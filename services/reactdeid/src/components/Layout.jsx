@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { DsaAuthManager, dsaAuthStore } from 'bdsa-react-components'
+import { dsaAuthStore } from 'bdsa-react-components'
 import config from '../config'
 import nciLogo from '../assets/NCI-logo-300x165.jpg'
 import UnaAuthButton from './UnaAuthButton'
+import SimpleLogin from './SimpleLogin'
 import './Layout.css'
 
 function Layout({ children }) {
@@ -295,11 +296,9 @@ function Layout({ children }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <UnaAuthButton />
                 <span style={{ color: '#999', fontSize: '0.85rem' }}>or</span>
-                <DsaAuthManager
-                  compact={true}
-                  defaultServerUrl={window.location.origin + '/dsa'}
-                  hideServerUrlField={true}
-                />
+                <SimpleLogin onLoginSuccess={(user) => {
+                  setAuthUser(user.login || user.name || 'User')
+                }} />
               </div>
             )}
           </div>

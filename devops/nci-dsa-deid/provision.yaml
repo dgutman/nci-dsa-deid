@@ -62,6 +62,9 @@ settings:
   histomicsui.webroot_path: "histomics"
   histomicsui.alternate_webroot_path: "histomicstk"
   histomicsui.delete_annotations_after_ingest: True
+  # OAuth External URL - Centralized configuration for OAuth redirect URIs
+  # This can be overridden via environment variable: OAUTH_EXTERNAL_URL or DSA_SETTING_oauth.external_url
+  oauth.external_url: "https://wsi-deid.pathology.emory.edu"
   homepage.markdown: |
     # NCI Digital Slide Archive
     ---
