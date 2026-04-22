@@ -851,10 +851,7 @@ function MergedData() {
       cellRenderer: (params) => {
         if (!params.value) return ''
         const itemId = params.value
-        const dsaBaseUrl = import.meta.env.DEV
-          ? 'https://wsi-deid.pathology.emory.edu/dsa'
-          : '/dsa'
-        const dsaUrl = `${dsaBaseUrl}#item/${itemId}`
+        const dsaUrl = `${config.dsaWebBaseUrl}#item/${itemId}`
         return (
           <a
             href={dsaUrl}

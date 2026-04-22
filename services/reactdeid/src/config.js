@@ -32,6 +32,24 @@ const config = {
         ? 'http://bdsa.pathology.emory.edu:8080/api/v1'  // Default remote dev server
         : '/dsa/api/v1'  // Production uses nginx proxy
       )
+  },
+
+  /**
+   * Base URL for the DSA web client (hash routes like #item/ID), e.g. /dsa or https://host/dsa.
+   * Derived from apiBaseUrl so "View in DSA" matches the API you are using (no hardcoded host).
+   */
+  get dsaWebBaseUrl() {
+    const api = this.apiBaseUrl
+    if (!api) return '/dsa'
+    if (api.startsWith('/')) {
+      return api.replace(/\/api\/v1\/?$/, '') || '/dsa'
+    }
+    try {
+      const u = new URL(api, typeof window !== 'undefined' ? window.location.href : 'http://localhost')
+      return `${u.origin}/dsa`
+    } catch {
+      return '/dsa'
+    }
   }
 }
 
