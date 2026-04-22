@@ -28,6 +28,11 @@ setup(
     keywords='girder-plugin, nci_dsa_deid',
     name='nci_dsa_deid',
     packages=find_packages(exclude=['test', 'test.*']),
+    # Non-Python assets used by barcodeHelpers (label thumbnails). MANIFEST.in grafts
+    # nci_dsa_deid; package_data keeps wheel/sdist installs explicit and reliable.
+    package_data={
+        'nci_dsa_deid': ['NCI-logo-300x165.jpg', 'DejaVuSansMono.ttf'],
+    },
     url='https://github.com/dgutman/nci_dsa_deid',
     version='0.1.0',
     zip_safe=False,

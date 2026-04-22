@@ -4,23 +4,58 @@ from pylibdmtx.pylibdmtx import encode
 import math, json
 import PIL, os
 
+try:
+    from girder import logger
+except Exception:
+    import logging
+
+    logger = logging.getLogger(__name__)
+
 keysForBarcode = ["ASSAY", "BLOCK", "CASE", "INDEX", "PROJECT", "REPOSITORY", "STUDY"]
 
-logoImageFile = "/opt/nci-dsa-deid/nci_dsa_deid/NCI-logo-300x165.jpg"
+_PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-logoImageFile="/opt/nci-dsa-deid/nci_dsa_deid/NCI-logo-300x165.jpg"
-fontFile = "/opt/nci-dsa-deid/nci_dsa_deid/DejaVuSansMono.ttf"
 
-if os.path.isfile(logoImageFile):
-    pass
-else:
-    logoImageFile = "./NCI-logo-300x165.jpg"
-    ## During local testing the /opt path does not exist, so using local path
+def _first_existing_path(*candidates):
+    for p in candidates:
+        if p and os.path.isfile(p):
+            return p
+    return None
 
-if os.path.isfile(fontFile):
-    pass
-else:
-    fontFile = "./DejaVuSansMono.ttf"
+
+def _resolve_logo_path():
+    """Path to the footer logo. Prefer $NCI_DSA_DEID_LOGO, then files next to this module."""
+    return _first_existing_path(
+        os.environ.get("NCI_DSA_DEID_LOGO"),
+        os.path.join(_PACKAGE_DIR, "NCI-logo-300x165.jpg"),
+        "/opt/nci-dsa-deid/nci_dsa_deid/NCI-logo-300x165.jpg",
+        os.path.join(os.getcwd(), "NCI-logo-300x165.jpg"),
+    )
+
+
+def _resolve_font_path():
+    return _first_existing_path(
+        os.environ.get("NCI_DSA_DEID_FONT"),
+        os.path.join(_PACKAGE_DIR, "DejaVuSansMono.ttf"),
+        "/opt/nci-dsa-deid/nci_dsa_deid/DejaVuSansMono.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+        os.path.join(os.getcwd(), "DejaVuSansMono.ttf"),
+    )
+
+
+logoImageFile = _resolve_logo_path()
+# Always a concrete path for ImageFont.truetype (missing file => IOError and fallback in computeFontSize)
+fontFile = _resolve_font_path() or os.path.join(_PACKAGE_DIR, "DejaVuSansMono.ttf")
+
+
+def _load_logo(logo_path):
+    if logo_path and os.path.isfile(logo_path):
+        return Image.open(logo_path)
+    logger.warning(
+        "NCI label logo not found (expected a file at %r or set NCI_DSA_DEID_LOGO); using blank placeholder",
+        logo_path,
+    )
+    return Image.new("RGB", (300, 165), color=(255, 255, 255))
 
 
 def split_into_chunks(s, max_length=40):
@@ -116,7 +151,7 @@ def add_barcode_to_image(
 
     ## TO DO make this a global parameter
 
-    logoImg = Image.open(logoImageFile)
+    logoImg = _load_logo(logoImageFile)
 
     # Dealing with barcode generation and placement...
     available_height = (
