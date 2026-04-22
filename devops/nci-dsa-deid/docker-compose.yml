@@ -200,7 +200,8 @@ services:
     working_dir: /home/reactdeid/app/
     restart: unless-stopped
     environment:
-      - VITE_DSA_API_URL=http://girder:8080/api/v1
+      # Overridable from devops/nci-dsa-deid/.env (Vite inlines this at dev-server startup)
+      - VITE_DSA_API_URL=${VITE_DSA_API_URL:-http://girder:8080/api/v1}
       - VITE_BASE_PATH=/deid/
       # Use the centralized OAUTH_EXTERNAL_URL for HMR host (extract domain only)
       - VITE_HMR_HOST=${OAUTH_EXTERNAL_URL:-wsi-deid.pathology.emory.edu}
